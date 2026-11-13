@@ -13,10 +13,11 @@ export type PokerErrorCode = 'validation-error' | 'invalid-state' | 'preconditio
 export class PokerDomainError extends Error {
   readonly code: PokerErrorCode
 
-  constructor(_code: PokerErrorCode, _message: string) {
-    super('not implemented')
-    this.code = _code
-    throw new Error('not implemented')
+  constructor(code: PokerErrorCode, message: string) {
+    super(message)
+    this.name = 'PokerDomainError'
+    this.code = code
+    Object.setPrototypeOf(this, new.target.prototype)
   }
 }
 
