@@ -12,7 +12,7 @@
 - **`@forge/kvs` (`^1.0.0`):** Forge Key-Value Store (`kvs.get`, `kvs.set` with `ttl`, `kvs.delete`, and `WhereConditions.beginsWith` prefix queries) for ephemeral per-issue voting state.
 - **`@forge/realtime` (`^1.0.0`):** Publishes live issue-scoped channel events from backend resolvers.
 - **`@forge/api` (`^6.0.0`):** Calls Jira Cloud REST API v3 via `api.asUser().requestJira(route\`...\`)` to inspect `editmeta`, read user profile metadata, and update Story Points.
-- **`@forge/bridge` (`^5.0.0`):** Custom UI client bridge (`invoke`, `realtime.subscribe`, `view.theme.enable`, `view.refresh`).
+- **`@forge/bridge` (`^5.0.0`):** Custom UI client bridge (`invoke`, `realtime.subscribe`, `view.theme.enable`, `view.refresh`), lazy-loaded dynamically inside `static/panel/src/bridge/poker-client.ts` so pure helper exports load cleanly outside the Jira iframe host.
 - **`vitest` (`^3.0.8`), `jsdom` (`^26.0.0`), `@testing-library/react` (`^16.2.0`), `@testing-library/jest-dom` (`^6.6.3`):** Headless unit and UI component test runner.
 - **`@biomejs/biome` (`2.5.15`):** Repository linter and formatter.
 

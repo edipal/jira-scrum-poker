@@ -41,26 +41,33 @@ Architectural and product decisions for **Scrum Poker for Jira** (`scrum-poker-j
 
 - **Status:** live
 - **Decided:** 2026-11-12
-- **Decision:** Compute the arithmetic mean of all numeric votes (ignoring `?`, while still displaying `?` voters in results) and snap the recommended score to the closest numeric Fibonacci card (`0, 1, 2, 3, 5, 8, 13, 21`), rounding **up** to the higher Fibonacci card on an exact midpoint tie (e.g., `4.0 -> 5`). Once revealed, clicking any numeric Fibonacci card updates the target score on the **Set Story Points** / **Copy Score** button without requiring a re-vote. If all votes are `?`, only **Re-vote** is enabled.
-- **Why:** Teams store Fibonacci numbers—not raw decimals like `4.33`—in Jira Story Points, and a 1-click post-reveal card override lets teams record quick verbal consensus without running an extra round.
+- **Decision:** Compute the exact arithmetic mean of all numeric votes (counting `0` as numeric and ignoring `?`, while still displaying `?` voters in results), format display averages half-up to at most 1 decimal place (omitting trailing `.0`), and snap `recommendedScore` from the unrounded mean to the closest numeric Fibonacci card (`0, 1, 2, 3, 5, 8, 13, 21`), rounding **up** to the higher Fibonacci card on an exact midpoint tie (e.g., `4.0 -> 5`). Once revealed, clicking any numeric Fibonacci card updates the target score on the **Set Story Points** / **Copy Score** button without requiring a re-vote. If all votes are `?`, no numeric score is recommended and only **Re-vote** is enabled until a numeric card (`0..21`) is clicked to set an override.
+- **Why:** Teams store Fibonacci numbers—not raw decimals like `4.33`—in Jira Story Points, snapping before display rounding avoids double-rounding drift (e.g., `6.49 -> 5`), and a 1-click post-reveal card override lets teams record quick verbal consensus without running an extra round.
 
 ### D-07: Zero-Config Story Points Detection via `editmeta` with Clipboard Fallback
 
 - **Status:** live
 - **Decided:** 2026-11-12
-- **Decision:** Detect the target estimation field dynamically per issue via `GET /rest/api/3/issue/{issueIdOrKey}/editmeta`, matching editable numeric fields for `Story Points` (company-managed) or `Story point estimate` (team-managed), and write the score via `PUT /rest/api/3/issue/{issueIdOrKey}` using `api.asUser()`. When no matching editable field exists on the issue screen, show an inline warning and switch the action button to **Copy Score**.
+- **Decision:** Detect the target estimation field dynamically per issue via `GET /rest/api/3/issue/{issueIdOrKey}/editmeta`, matching editable (`operations` containing `'set'` when present) numeric (`schema.type === 'number'` when present) fields for `Story Points` (company-managed, tier 0) or `Story point estimate` (team-managed, tier 1, breaking same-tier ties by ascending `fieldId`), and write the score via `PUT /rest/api/3/issue/{issueIdOrKey}` using `api.asUser()`. When no matching editable field exists on the issue screen (or metadata is `401`/`403` for a read-only viewer), report `storyPointsField: null` so the panel shows an inline warning and switches the action button to **Copy Score**.
 - **Why:** Story Points is a custom field (`customfield_XXXXX`) whose ID varies across every Jira instance and project template, and some issue types (such as Sub-tasks or Bugs) omit it from their edit screen.
 
 ### D-08: Clear Round After Saving & Expire Unfinished Rounds After 24 Hours
 
 - **Status:** live
 - **Decided:** 2026-11-12
-- **Decision:** Clear the issue's poker round back to idle immediately after Story Points are saved to Jira, and expire unfinished/abandoned rounds after 24 hours using both Forge KVS `ttl: { value: 24, unit: 'HOURS' }` and an explicit `updatedAt` timestamp check on read.
+- **Decision:** Clear the issue's poker round back to idle immediately after Story Points are saved to Jira, and expire unfinished/abandoned rounds after 24 hours using both Forge KVS `ttl: { value: 24, unit: 'HOURS' }` and an explicit timestamp check on read (`nowMs - updatedAt >= 86_400_000` ms, keeping `< 86_400_000` ms and minor negative clock skew active without extending `updatedAt` on expired reads).
 - **Why:** Keeps tickets clean during sprint execution and prevents abandoned half-voted rounds from reappearing weeks later (accounting for Forge KVS's lazy up-to-48h background TTL sweep).
 
 ### D-09: Forge Custom UI + Per-Voter `@forge/kvs` Keys
 
 - **Status:** live
 - **Decided:** 2026-11-12
-- **Decision:** Build the frontend with Forge Custom UI (React + Vite + `view.theme.enable()`) rather than Forge UI Kit, and store each voter's pick under an isolated KVS key `poker:{issueId}:{roundId}:vote:{accountId}` alongside round metadata `poker:{issueId}:meta`.
+- **Decision:** Build the frontend with Forge Custom UI (React 19 + Vite + `view.theme.enable()`) rather than Forge UI Kit, and store each voter's pick under an isolated KVS key `poker:{issueId}:{roundId}:vote:{accountId}` alongside round metadata `poker:{issueId}:meta` (`{ roundId, status, overrideScore, updatedAt }`).
 - **Why:** Forge UI Kit blocks browser clipboard access needed for the D-07 **Copy Score** fallback, and per-voter KVS keys guarantee that simultaneous card clicks never overwrite each other.
+
+### D-10: Shared Server-Persisted Override & Atomic Discriminated Write-Back Results
+
+- **Status:** live
+- **Decided:** 2026-11-13
+- **Decision:** Persist post-reveal consensus overrides on `RoundMeta.overrideScore` (`targetScore = overrideScore ?? recommendedScore`) and broadcast updates over `@forge/realtime`, while modeling `applyStoryPoints` outcomes as a discriminated union (`{ ok: true, appliedScore, fieldName, session } | { ok: false, reason: 'missing-field' | 'forbidden' | 'jira-error', score, message }`) distinct from `PokerDomainError` (`'validation-error' | 'invalid-state' | 'precondition-failed'`).
+- **Why:** Storing `overrideScore` on the round metadata keeps every connected teammate's panel aligned on the agreed target score before saving, and returning structured failure reasons on missing fields or Jira `401`/`403`/`5xx` responses guarantees atomic rollback-free preservation of revealed votes so another user can apply or copy the score.
