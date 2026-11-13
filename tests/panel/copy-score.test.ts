@@ -8,6 +8,7 @@ import {
 
 describe('formatScoreForClipboard and copyScoreToClipboard (R13)', () => {
   afterEach(() => {
+    vi.unstubAllGlobals()
     vi.restoreAllMocks()
     for (const node of Array.from(document.querySelectorAll('textarea'))) {
       node.remove()
@@ -230,6 +231,5 @@ describe('formatScoreForClipboard and copyScoreToClipboard (R13)', () => {
       method: 'clipboard-api',
     })
     expect(writeText).toHaveBeenCalledWith('21')
-    vi.unstubAllGlobals()
   })
 })

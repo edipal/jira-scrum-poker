@@ -466,12 +466,13 @@ describe('createPokerClient RPC forwarding, validation guards, and realtime life
     const cleanup = client.subscribeToSessionEvents((ev) => {
       events.push(ev)
     })
-    await Promise.resolve()
 
+    await vi.waitFor(() => {
+      expect(defaultBridgeState.subscribeCalls).toHaveLength(1)
+    })
     expect(defaultBridgeState.themeEnableCalls).toBe(1)
     expect(defaultBridgeState.viewRefreshCalls).toBe(1)
     expect(defaultBridgeState.invokeCalls).toEqual([{ functionKey: 'getSession', payload: undefined }])
-    expect(defaultBridgeState.subscribeCalls).toHaveLength(1)
     expect(defaultBridgeState.subscribeCalls[0]?.channel).toBe('scrum-poker')
 
     defaultBridgeState.subscribeCalls[0]?.callback({

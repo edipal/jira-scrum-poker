@@ -41,6 +41,10 @@ describe('Live multi-user synchronization, race guards, refresh deduplication, a
 
   it('synchronizes two live panels across vote, withdrawal, reveal, targetScore override (including 0), reset, and Story Points save without polling', async () => {
     const setIntervalSpy = vi.spyOn(globalThis, 'setInterval')
+    const getAppPollingIntervals = () =>
+      setIntervalSpy.mock.calls.filter(
+        ([handler]) => typeof handler !== 'function' || handler.name !== 'checkRealTimersCallback',
+      )
     const harness = createMultiPanelHarness('10099')
     const alicePeer = harness.createPeer('acc-alice', 'Alice')
     const bobPeer = harness.createPeer('acc-bob', 'Bob')
@@ -57,7 +61,7 @@ describe('Live multi-user synchronization, race guards, refresh deduplication, a
 
     await aliceUI.findByTestId('empty-voters-prompt')
     await bobUI.findByTestId('empty-voters-prompt')
-    expect(setIntervalSpy).not.toHaveBeenCalled()
+    expect(getAppPollingIntervals()).toHaveLength(0)
 
     // 1. Alice casts '5' -> Bob automatically sees "Alice ✓" without seeing '5'
     fireEvent.click(aliceUI.getByTestId('poker-card-5'))
@@ -142,6 +146,7 @@ describe('Live multi-user synchronization, race guards, refresh deduplication, a
     })
     expect(aliceUI.getByTestId('empty-voters-prompt')).toHaveTextContent('Pick a card to start voting')
     expect(bobUI.getByTestId('empty-voters-prompt')).toHaveTextContent('Pick a card to start voting')
+    expect(getAppPollingIntervals()).toHaveLength(0)
 
     aliceView.unmount()
     bobView.unmount()
@@ -592,10 +597,12 @@ describe('Local Light/Dark CSS tokens and Runs on Atlassian zero-egress complian
     for (const fullPath of frontendModulePaths) {
       const relPath = relative(REPO_ROOT, fullPath)
       const content = readFileSync(fullPath, 'utf8')
-      const importStatements = content.match(/(?:import|export)\s+[\s\S]*?from\s+['"][^'"]+['"]/g) ?? []
+      const strippedComments = content.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '')
+      const importStatements = strippedComments.match(/^\s*(?:import|export)\s+[\s\S]*?from\s+['"][^'"]+['"]/gm) ?? []
       for (const stmt of importStatements) {
-        if (stmt.includes('/src/') || /from\s+['"](?:\.\.\/)+src\//.test(stmt)) {
-          expect(stmt, `${relPath} must use type-only imports from src/`).toMatch(/^(?:import|export)\s+type\b/)
+        const trimmedStmt = stmt.trim()
+        if (trimmedStmt.includes('/src/') || /from\s+['"](?:\.\.\/)+src\//.test(trimmedStmt)) {
+          expect(trimmedStmt, `${relPath} must use type-only imports from src/`).toMatch(/^(?:import|export)\s+type\b/)
         }
       }
     }

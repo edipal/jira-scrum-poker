@@ -125,6 +125,22 @@ describe('ScrumPokerApp initialization, theme sync, bootstrap, and voting contro
     const actualReactDomClient = await import('react-dom/client')
     let mountedRoot: ReturnType<typeof actualReactDomClient.createRoot> | null = null
 
+    const hostWindow = window as Window & {
+      __bridge?: {
+        callBridge: (action: string, payload?: unknown) => Promise<unknown>
+      }
+    }
+    const callBridge = vi.fn(async (action: string): Promise<unknown> => {
+      if (action === 'invoke') {
+        return makeIdleVotingSnapshot()
+      }
+      if (action === 'subscribeRealtime' || action === 'subscribe') {
+        return { unsubscribe: async () => {} }
+      }
+      return undefined
+    })
+    hostWindow.__bridge = { callBridge }
+
     vi.resetModules()
     vi.doMock('react', () => actualReact)
     vi.doMock('react-dom/client', () => ({
@@ -162,6 +178,7 @@ describe('ScrumPokerApp initialization, theme sync, bootstrap, and voting contro
         })
       }
       rootDiv.remove()
+      delete hostWindow.__bridge
       vi.doUnmock('@forge/bridge')
       vi.doUnmock('react-dom/client')
       vi.doUnmock('react')
