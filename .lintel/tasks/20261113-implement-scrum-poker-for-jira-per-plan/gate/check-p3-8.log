@@ -1,0 +1,62 @@
+======================================================================
+LINTEL GATE RUN: CHECK
+Mode:             stop-at-first-red
+Candidate commit: 29f248547a49311c46a2bdf3cb32e64b1c0cf16d
+Candidate tree:   5f19a14d8684e1f4ed9024b6f2c084d52f99aa8f
+Worktree:         /private/var/folders/kb/btpbcpw17ng13dr6g3ttzg7w0000gn/T/lintel-gate-3ysqd7wh
+Started at:       2026-11-13T15:00:18.993108+00:00
+======================================================================
+
+--- SETUP (.lintel/scripts/setup.sh) ---
+Exit code: 0 (green), Duration: 4.63s
+
+--- TEST GROUP: unit (.lintel/scripts/test-unit.sh) ---
+Exit code: 0 (status: green, test_files: 17), Duration: 7.49s
+
+ RUN  v3.2.7 /private/var/folders/kb/btpbcpw17ng13dr6g3ttzg7w0000gn/T/lintel-gate-3ysqd7wh
+
+ ✓ tests/domain/jira-fields.test.ts (34 tests) 3ms
+ ✓ tests/panel/copy-score.test.ts (30 tests) 10ms
+ ✓ tests/domain/scoring.test.ts (89 tests) 4ms
+ ✓ tests/domain/session-view.test.ts (102 tests) 6ms
+ ✓ tests/domain/deck.test.ts (192 tests) 6ms
+ ✓ tests/backend/forge-sdk-wiring.test.ts (2 tests) 3ms
+ ✓ tests/backend/session-store.test.ts (37 tests) 7ms
+ ✓ tests/backend/observability-and-manifest.test.ts (38 tests) 6ms
+ ✓ tests/backend/jira-and-realtime.test.ts (11 tests) 6ms
+ ✓ tests/backend/poker-resolvers.test.ts (110 tests) 22ms
+ ✓ tests/panel/poker-client.test.ts (80 tests) 57ms
+ ✓ tests/panel/scrum-poker-app-revealed.test.tsx (7 tests) 99ms
+ ✓ tests/panel/live-sync-and-compliance.test.tsx (8 tests) 174ms
+ ✓ tests/panel/scrum-poker-app-voting.test.tsx (8 tests) 218ms
+
+ Test Files  14 passed (14)
+      Tests  748 passed (748)
+   Start at  16:00:27
+   Duration  3.67s (transform 1.40s, setup 0ms, collect 5.18s, tests 621ms, environment 32.97s, prepare 1.91s)
+
+--- TEST GROUP: integration (.lintel/scripts/test-integration.sh) ---
+Exit code: 3 (status: no-tests, test_files: 0), Duration: 4.29s
+
+--- TEST GROUP: e2e (.lintel/scripts/test-e2e.sh) ---
+Exit code: 3 (status: no-tests, test_files: 0), Duration: 0.03s
+
+--- TEARDOWN (.lintel/scripts/teardown.sh) ---
+Exit code: 0, Duration: 0.01s
+
+--- TESTS ALONE CHECK ---
+Status: PASS (all tracked files untouched, no new test files)
+
+--- WORKTREE CLEAN CHECK ---
+Status: PASS (no modified tracked files or untracked non-ignored files)
+
+--- SUMMARY ---
+setup:          exit 0 (green)
+unit        : green (exit 0)
+integration : no-tests (exit 3)
+e2e         : no-tests (exit 3)
+teardown:       exit 0 (logged)
+tests_clean:    PASS
+worktree_clean: PASS
+OVERALL:        GREEN
+======================================================================

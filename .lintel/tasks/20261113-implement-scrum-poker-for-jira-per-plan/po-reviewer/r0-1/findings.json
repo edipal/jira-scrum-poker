@@ -1,0 +1,16 @@
+[
+  {
+    "id": "F1",
+    "severity": "minor",
+    "status": "open",
+    "where": "shared/requirements.md § R10",
+    "summary": "R10 Acceptance Criterion 2 allows either the canonical title-cased label ('Story point estimate') or the trimmed raw field label ('story point estimate') for input '  story point estimate '; the Architect should pick one deterministic normalization rule in shared/plan.md so QA and DEV assert the same fieldName casing."
+  },
+  {
+    "id": "F2",
+    "severity": "minor",
+    "status": "open",
+    "where": "shared/requirements.md § R3",
+    "summary": "R3's normative sentences for casting, updating, and withdrawing votes omit the explicit 'publish a live session update notification' clause present in R6, R8, and R9, though R12 already unambiguously requires live peer synchronization on vote cast, update, and withdrawal."
+  }
+]

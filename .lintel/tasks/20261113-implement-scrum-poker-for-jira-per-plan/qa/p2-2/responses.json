@@ -1,0 +1,6 @@
+{
+  "QAR-001": {
+    "status": "fixed",
+    "reason": "Updated 'R8: Post-reveal consensus override via selectOverrideScore' in tests/backend/poker-resolvers.test.ts to pass payload: { score: 8 } on seeded votes ['3', '8'] (arithmetic mean 5.5 -> recommendedScore 5) and assert updatedNumeric.targetScore === 8, updatedNumeric.recommendedScore === 5, updatedNumeric.average === 5.5, updatedNumeric.formattedAverage === '5.5', peerView.targetScore === 8, and peerView.recommendedScore === 5, matching shared/requirements.md R8 AC1, shared/phase-2/contract.md, and src/domain/scoring.ts."
+  }
+}

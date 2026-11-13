@@ -1,0 +1,16 @@
+[
+  {
+    "id": "ARC-01",
+    "severity": "major",
+    "status": "fixed",
+    "where": "shared/phase-1/contract.md :: ### 3. src/domain/scoring.ts (formatAverage)",
+    "summary": "formatAverage(mean) embeds the formula Math.round((mean + Number.EPSILON) * 10) / 10, which violates Requirement R7's and the contract's half-up rounding rule for averages >= 2 (where 1 ULP exceeds Number.EPSILON, causing exact .x5 averages such as 2.55 [51/20], 5.05 [101/20], 10.05 [201/20], and 17.15 [343/20] to round down to '2.5', '5', '10', and '17.1' instead of '2.6', '5.1', '10.1', and '17.2') and can round values in (0, 1) strictly below 0.05 upward. Remove the broken Number.EPSILON expression in both contract.md and design.md and specify half-up rounding to at most 1 fractional digit against mean's canonical decimal representation (omitting trailing '.0' and grouping separators, e.g., 2.55 -> '2.6', 9.95 -> '10', 17.15 -> '17.2', 6.49 -> '6.5')."
+  },
+  {
+    "id": "ARC-02",
+    "severity": "minor",
+    "status": "fixed",
+    "where": "shared/phase-1/contract.md :: ### 4. src/domain/session-view.ts (projectSessionSnapshot)",
+    "summary": "projectSessionSnapshot specifies viewerAccountId validation as viewerAccountId.trim().length > 0 (allowing leading/trailing whitespace) with exact-match comparison (vote.accountId === params.viewerAccountId), while describing meta.roundId and vote.accountId as 'a non-empty trimmed string', which is ambiguous between s.trim().length > 0 ('non-empty when trimmed') and s.trim().length > 0 && s === s.trim() ('already trimmed'). State the exact whitespace predicate consistently for viewerAccountId, meta.roundId, and vote.accountId."
+  }
+]

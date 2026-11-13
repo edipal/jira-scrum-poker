@@ -1,0 +1,10 @@
+{
+  "ARC-01": {
+    "status": "fixed",
+    "reason": "Updated shared/phase-2/contract.md and shared/phase-2/design.md (including ## Test outline) to specify that all 6 SessionSnapshot-returning handlers (getSession, castVote, withdrawVote, revealVotes, selectOverrideScore, and resetRound) resolve storyPointsField via jira.getEditableStoryPointsField(issueId) once per non-throwing invocation strictly after context, payload, invalid-state, and precondition-failed guards pass (so rejected invocations make zero Jira requests), and explicitly specified that in castVote and withdrawVote a stored voter record from getVoterRecord counts as active only when vote !== null && !isRoundExpired(vote.votedAt, nowMs)."
+  },
+  "ARC-02": {
+    "status": "fixed",
+    "reason": "Updated shared/phase-2/contract.md, shared/phase-2/design.md (including ## Test outline), and src/observability/logger.ts so sanitizeLogMetadata(metadata: unknown) enforces the strict plain-object prototype check (proto === Object.prototype || proto === null, matching src/domain/jira-fields.ts, deterministically rejecting Date/Error/Map/Set/Array/null/primitives with PokerDomainError 'validation-error') and explicitly anchors recursion depth with root metadata at depth = 0, nested plain objects and arrays at depth = 1..4 sanitized property/element-wise, and nested plain objects and arrays at depth > 4 replaced with '[TRUNCATED]'."
+  }
+}

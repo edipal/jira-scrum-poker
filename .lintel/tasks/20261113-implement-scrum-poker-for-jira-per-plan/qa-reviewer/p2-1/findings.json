@@ -1,0 +1,9 @@
+[
+  {
+    "id": "QAR-001",
+    "severity": "blocker",
+    "status": "open",
+    "where": "tests/backend/poker-resolvers.test.ts:1204-1223",
+    "summary": "In 'R8: Post-reveal consensus override via selectOverrideScore', the seeded votes ['3', '8'] produce arithmetic mean 5.5, which snaps to recommendedScore = 5 (|5.5 - 5| = 0.5 < |5.5 - 8| = 2.5), not 8. Because createBackendTestHarness() throws 'not implemented' on the stub, lines 1204-1223 are post-stub dead code whose expect(updatedNumeric.recommendedScore).toBe(8) assertion contradicts src/domain/scoring.ts, shared/phase-2/contract.md, and shared/requirements.md R8 AC1. Update the test to pass payload: { score: 8 } and assert updatedNumeric.targetScore === 8, updatedNumeric.recommendedScore === 5, and peerView.targetScore === 8."
+  }
+]

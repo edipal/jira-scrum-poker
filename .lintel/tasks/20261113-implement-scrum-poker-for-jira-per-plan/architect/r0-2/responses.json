@@ -1,0 +1,10 @@
+{
+  "ARC-01": {
+    "status": "fixed",
+    "reason": "Removed the broken Math.round((mean + Number.EPSILON) * 10) / 10 formula from both shared/phase-1/contract.md and shared/phase-1/design.md, specified half-up rounding to at most 1 fractional digit against mean's canonical base-10 decimal representation (Number.prototype.toString(10)) omitting trailing '.0' and grouping separators (e.g., 2.55 -> '2.6', 9.95 -> '10', 17.15 -> '17.2', 0.04 -> '0', 6.49 -> '6.5'), and expanded the R7 unit test outline bullet to cover exact .x5 boundaries and sub-half values."
+  },
+  "ARC-02": {
+    "status": "fixed",
+    "reason": "Specified the exact canonical identifier predicate typeof s === 'string' && s.trim().length > 0 && s === s.trim() consistently across viewerAccountId, active meta.roundId, non-null roundId in createIdleSessionSnapshot, and vote.accountId in both shared/phase-1/contract.md and shared/phase-1/design.md, and updated the R9 unit test outline bullet accordingly."
+  }
+}

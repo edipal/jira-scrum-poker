@@ -1,0 +1,1196 @@
+======================================================================
+LINTEL GATE RUN: LOCK
+Mode:             run-all
+Candidate commit: c65e894f16ae863fb38af1bada599393ebf6b24f
+Candidate tree:   d82bf02563d873313eb5be5c33816e400050ad87
+Worktree:         /private/var/folders/kb/btpbcpw17ng13dr6g3ttzg7w0000gn/T/lintel-gate-5r1060tx
+Started at:       2026-11-13T10:04:16.368490+00:00
+======================================================================
+
+--- SETUP (.lintel/scripts/setup.sh) ---
+Exit code: 0 (green), Duration: 5.58s
+
+--- TEST GROUP: unit (.lintel/scripts/test-unit.sh) ---
+Exit code: 1 (status: red, test_files: 11), Duration: 6.16s
+
+ RUN  v3.2.7 /private/var/folders/kb/btpbcpw17ng13dr6g3ttzg7w0000gn/T/lintel-gate-5r1060tx
+
+ ✓ tests/domain/jira-fields.test.ts (34 tests) 2ms
+ ✓ tests/domain/scoring.test.ts (89 tests) 4ms
+ ✓ tests/domain/deck.test.ts (192 tests) 7ms
+ ✓ tests/domain/session-view.test.ts (102 tests) 10ms
+ ❯ tests/backend/forge-sdk-wiring.test.ts (2 tests | 2 failed) 6ms
+   × Forge SDK default wiring and src/index.ts entrypoint registration (R2, R10, R11, R14) > src/index.ts registers all 7 RESOLVER_KEYS on @forge/resolver and exports handler definitions 5ms
+     → expected [] to deeply equal [ Array(7) ]
+   × Forge SDK default wiring and src/index.ts entrypoint registration (R2, R10, R11, R14) > defaults createSessionStore, createJiraClient, and createRealtimePublisher to @forge/kvs, api.asUser(), and @forge/realtime 0ms
+     → not implemented
+ ❯ tests/backend/jira-and-realtime.test.ts (11 tests | 11 failed) 4ms
+   × Realtime publisher channel events, redaction, and best-effort resilience (R5, R11, R14) > exposes POKER_REALTIME_CHANNEL as "scrum-poker" and publishes card-free, PII-free events 2ms
+     → not implemented
+   × Realtime publisher channel events, redaction, and best-effort resilience (R5, R11, R14) > rejects invalid roundId, non-finite updatedAt, or non-Fibonacci score with validation-error 0ms
+     → not implemented
+   × Realtime publisher channel events, redaction, and best-effort resilience (R5, R11, R14) > degrades gracefully when @forge/realtime publish rejects, logging a redacted WARN entry without rethrowing 0ms
+     → not implemented
+   × JiraClient current-user profile lookup and PII stripping (R5, R14) > fetches /rest/api/3/myself, normalizes displayName, applies avatarUrl priority order, and strips emailAddress 0ms
+     → not implemented
+   × JiraClient current-user profile lookup and PII stripping (R5, R14) > falls back to Unknown User and logs redacted WARN when /rest/api/3/myself fails ('HTTP 500 error') 0ms
+     → not implemented
+   × JiraClient current-user profile lookup and PII stripping (R5, R14) > falls back to Unknown User and logs redacted WARN when /rest/api/3/myself fails ('HTTP 403 forbidden') 0ms
+     → not implemented
+   × JiraClient current-user profile lookup and PII stripping (R5, R14) > falls back to Unknown User and logs redacted WARN when /rest/api/3/myself fails ('malformed JSON body') 0ms
+     → not implemented
+   × JiraClient current-user profile lookup and PII stripping (R5, R14) > falls back to Unknown User and logs redacted WARN when /rest/api/3/myself fails ('network transport error with sensitiv…') 0ms
+     → not implemented
+   × JiraClient Story Points editmeta detection and atomic PUT write-back (R10, R11, R14) > detects Story Points with tier precedence and lexicographical fieldId tie-breaking via GET editmeta 0ms
+     → not implemented
+   × JiraClient Story Points editmeta detection and atomic PUT write-back (R10, R11, R14) > returns null silently on 401/403 editmeta and returns null with WARN on 404/500/malformed/transport/non-matching 0ms
+     → not implemented
+   × JiraClient Story Points editmeta detection and atomic PUT write-back (R10, R11, R14) > writes Story Points (including 0) via PUT /rest/api/3/issue/{issueId} and maps missing-field, forbidden, and jira-error outcomes 0ms
+     → not implemented
+ ❯ tests/backend/session-store.test.ts (37 tests | 36 failed) 8ms
+   ✓ Session store identifier guards, key builders, and round progression (R2, R4, R9) > exposes KVS_TTL_24H = 24 HOURS and KVS_QUERY_LIMIT = 100 1ms
+   × Session store identifier guards, key builders, and round progression (R2, R4, R9) > accepts valid identifier ('single-character identifier') via assertSafeIdentifier 2ms
+     → not implemented
+   × Session store identifier guards, key builders, and round progression (R2, R4, R9) > accepts valid identifier ('numeric Jira issue ID string') via assertSafeIdentifier 0ms
+     → not implemented
+   × Session store identifier guards, key builders, and round progression (R2, R4, R9) > accepts valid identifier ('Jira issue key') via assertSafeIdentifier 0ms
+     → not implemented
+   × Session store identifier guards, key builders, and round progression (R2, R4, R9) > accepts valid identifier ('colon-delimited Atlassian accountId') via assertSafeIdentifier 0ms
+     → not implemented
+   × Session store identifier guards, key builders, and round progression (R2, R4, R9) > accepts valid identifier ('exact 128-character upper boundary') via assertSafeIdentifier 0ms
+     → not implemented
+   × Session store identifier guards, key builders, and round progression (R2, R4, R9) > rejects invalid identifier ('empty string') with PokerDomainError validation-error referencing label 2ms
+     → expected Error: not implemented to be an instance of PokerDomainError
+   × Session store identifier guards, key builders, and round progression (R2, R4, R9) > rejects invalid identifier ('whitespace-only string') with PokerDomainError validation-error referencing label 0ms
+     → expected Error: not implemented to be an instance of PokerDomainError
+   × Session store identifier guards, key builders, and round progression (R2, R4, R9) > rejects invalid identifier ('leading space') with PokerDomainError validation-error referencing label 0ms
+     → expected Error: not implemented to be an instance of PokerDomainError
+   × Session store identifier guards, key builders, and round progression (R2, R4, R9) > rejects invalid identifier ('trailing space') with PokerDomainError validation-error referencing label 0ms
+     → expected Error: not implemented to be an instance of PokerDomainError
+   × Session store identifier guards, key builders, and round progression (R2, R4, R9) > rejects invalid identifier ('tab prefix') with PokerDomainError validation-error referencing label 0ms
+     → expected Error: not implemented to be an instance of PokerDomainError
+   × Session store identifier guards, key builders, and round progression (R2, R4, R9) > rejects invalid identifier ('newline suffix') with PokerDomainError validation-error referencing label 0ms
+     → expected Error: not implemented to be an instance of PokerDomainError
+   × Session store identifier guards, key builders, and round progression (R2, R4, R9) > rejects invalid identifier ('129-character overlong identifier (ma…') with PokerDomainError validation-error referencing label 0ms
+     → expected Error: not implemented to be an instance of PokerDomainError
+   × Session store identifier guards, key builders, and round progression (R2, R4, R9) > rejects invalid identifier ('forward slash path separator') with PokerDomainError validation-error referencing label 0ms
+     → expected Error: not implemented to be an instance of PokerDomainError
+   × Session store identifier guards, key builders, and round progression (R2, R4, R9) > rejects invalid identifier ('backslash path separator') with PokerDomainError validation-error referencing label 0ms
+     → expected Error: not implemented to be an instance of PokerDomainError
+   × Session store identifier guards, key builders, and round progression (R2, R4, R9) > rejects invalid identifier ('null byte character') with PokerDomainError validation-error referencing label 0ms
+     → expected Error: not implemented to be an instance of PokerDomainError
+   × Session store identifier guards, key builders, and round progression (R2, R4, R9) > rejects invalid identifier ('numeric value instead of string') with PokerDomainError validation-error referencing label 0ms
+     → expected Error: not implemented to be an instance of PokerDomainError
+   × Session store identifier guards, key builders, and round progression (R2, R4, R9) > rejects invalid identifier ('null') with PokerDomainError validation-error referencing label 0ms
+     → expected Error: not implemented to be an instance of PokerDomainError
+   × Session store identifier guards, key builders, and round progression (R2, R4, R9) > rejects invalid identifier ('undefined') with PokerDomainError validation-error referencing label 0ms
+     → expected Error: not implemented to be an instance of PokerDomainError
+   × Session store identifier guards, key builders, and round progression (R2, R4, R9) > rejects invalid identifier ('plain object') with PokerDomainError validation-error referencing label 0ms
+     → expected Error: not implemented to be an instance of PokerDomainError
+   × Session store identifier guards, key builders, and round progression (R2, R4, R9) > constructs isolated KVS metadata and per-voter keys and rejects unsafe segments 0ms
+     → not implemented
+   × Session store identifier guards, key builders, and round progression (R2, R4, R9) > computes deterministic nextRoundId ('undefined -> round-1') 0ms
+     → not implemented
+   × Session store identifier guards, key builders, and round progression (R2, R4, R9) > computes deterministic nextRoundId ('null -> round-1') 0ms
+     → not implemented
+   × Session store identifier guards, key builders, and round progression (R2, R4, R9) > computes deterministic nextRoundId ('round-1 -> round-2') 0ms
+     → not implemented
+   × Session store identifier guards, key builders, and round progression (R2, R4, R9) > computes deterministic nextRoundId ('round-99 -> round-100') 0ms
+     → not implemented
+   × Session store identifier guards, key builders, and round progression (R2, R4, R9) > computes deterministic nextRoundId ('r-2 -> r-3') 0ms
+     → not implemented
+   × Session store identifier guards, key builders, and round progression (R2, R4, R9) > computes deterministic nextRoundId ('BigInt precision beyond MAX_SAFE_INTE…') 0ms
+     → not implemented
+   × Session store identifier guards, key builders, and round progression (R2, R4, R9) > computes deterministic nextRoundId ('non-numbered identifier appends -2') 0ms
+     → not implemented
+   × Session store identifier guards, key builders, and round progression (R2, R4, R9) > computes deterministic nextRoundId ('zero suffix appends -2') 0ms
+     → not implemented
+   × Session store identifier guards, key builders, and round progression (R2, R4, R9) > rejects invalid previousRoundId "" in nextRoundId with validation-error 0ms
+     → expected Error: not implemented to be an instance of PokerDomainError
+   × Session store identifier guards, key builders, and round progression (R2, R4, R9) > rejects invalid previousRoundId "   " in nextRoundId with validation-error 0ms
+     → expected Error: not implemented to be an instance of PokerDomainError
+   × Session store identifier guards, key builders, and round progression (R2, R4, R9) > rejects invalid previousRoundId " round-1" in nextRoundId with validation-error 0ms
+     → expected Error: not implemented to be an instance of PokerDomainError
+   × Session store identifier guards, key builders, and round progression (R2, R4, R9) > rejects invalid previousRoundId "round/1" in nextRoundId with validation-error 0ms
+     → expected Error: not implemented to be an instance of PokerDomainError
+   × SessionStore round metadata, voter records, 24h TTL, and pagination (R2, R3, R4, R9) > persists and reads RoundMeta with 24-hour TTL and returns null when absent or malformed in KVS 0ms
+     → not implemented
+   × SessionStore round metadata, voter records, 24h TTL, and pagination (R2, R3, R4, R9) > persists, normalizes, reads, and deletes isolated VoterRecords with 24-hour TTL 0ms
+     → not implemented
+   × SessionStore round metadata, voter records, 24h TTL, and pagination (R2, R3, R4, R9) > enforces exact 24-hour expiry boundary on listVoterRecords (86_399_999 ms active, negative skew active, >= 86_400_000 ms expired) 0ms
+     → not implemented
+   × SessionStore round metadata, voter records, 24h TTL, and pagination (R2, R3, R4, R9) > paginates >100 voter records across all nextCursor pages in listVoterRecords and deletes 100% in deleteRoundVotes without mid-scan cursor truncation 0ms
+     → not implemented
+ ❯ tests/backend/poker-resolvers.test.ts (110 tests | 110 failed) 13ms
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote accepts canonical deck card "0" and persists with 24h TTL 4ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote accepts canonical deck card "1" and persists with 24h TTL 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote accepts canonical deck card "2" and persists with 24h TTL 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote accepts canonical deck card "3" and persists with 24h TTL 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote accepts canonical deck card "5" and persists with 24h TTL 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote accepts canonical deck card "8" and persists with 24h TTL 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote accepts canonical deck card "13" and persists with 24h TTL 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote accepts canonical deck card "21" and persists with 24h TTL 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote accepts canonical deck card "?" and persists with 24h TTL 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote accepts null-prototype plain object payloads 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote rejects invalid input ('empty string') with validation-error before any KVS or Jira I/O 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote rejects invalid input ('spaces-only string') with validation-error before any KVS or Jira I/O 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote rejects invalid input ('leading whitespace (" 5")') with validation-error before any KVS or Jira I/O 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote rejects invalid input ('trailing whitespace ("5 ")') with validation-error before any KVS or Jira I/O 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote rejects invalid input ('surrounding whitespace (" 5 ")') with validation-error before any KVS or Jira I/O 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote rejects invalid input ('negative string ("-1")') with validation-error before any KVS or Jira I/O 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote rejects invalid input ('decimal string ("3.5")') with validation-error before any KVS or Jira I/O 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote rejects invalid input ('non-Fibonacci integer ("4")') with validation-error before any KVS or Jira I/O 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote rejects invalid input ('non-Fibonacci integer ("6")') with validation-error before any KVS or Jira I/O 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote rejects invalid input ('next Fibonacci outside deck ("34")') with validation-error before any KVS or Jira I/O 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote rejects invalid input ('arbitrary word ("coffee")') with validation-error before any KVS or Jira I/O 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote rejects invalid input ('card null') with validation-error before any KVS or Jira I/O 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote rejects invalid input ('card undefined') with validation-error before any KVS or Jira I/O 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote rejects invalid input ('numeric 5 instead of string') with validation-error before any KVS or Jira I/O 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote rejects invalid input ('empty object missing card') with validation-error before any KVS or Jira I/O 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote rejects invalid input ('missing payload (undefined)') with validation-error before any KVS or Jira I/O 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote rejects invalid input ('null payload') with validation-error before any KVS or Jira I/O 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote rejects invalid input ('array payload') with validation-error before any KVS or Jira I/O 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote rejects invalid input ('primitive string payload') with validation-error before any KVS or Jira I/O 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote rejects invalid input ('Date instance payload') with validation-error before any KVS or Jira I/O 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote rejects invalid input ('class instance payload') with validation-error before any KVS or Jira I/O 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints accept numeric Fibonacci score 0 on revealed round 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints accept numeric Fibonacci score 1 on revealed round 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints accept numeric Fibonacci score 2 on revealed round 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints accept numeric Fibonacci score 3 on revealed round 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints accept numeric Fibonacci score 5 on revealed round 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints accept numeric Fibonacci score 8 on revealed round 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints accept numeric Fibonacci score 13 on revealed round 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints accept numeric Fibonacci score 21 on revealed round 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints reject invalid score ('negative zero (-0)') with validation-error, zero Jira/KVS calls, and intact state 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints reject invalid score ('negative integer (-1)') with validation-error, zero Jira/KVS calls, and intact state 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints reject invalid score ('non-Fibonacci integer (4)') with validation-error, zero Jira/KVS calls, and intact state 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints reject invalid score ('decimal (4.5)') with validation-error, zero Jira/KVS calls, and intact state 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints reject invalid score ('above max deck score (22)') with validation-error, zero Jira/KVS calls, and intact state 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints reject invalid score ('NaN') with validation-error, zero Jira/KVS calls, and intact state 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints reject invalid score ('positive Infinity') with validation-error, zero Jira/KVS calls, and intact state 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints reject invalid score ('negative Infinity') with validation-error, zero Jira/KVS calls, and intact state 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints reject invalid score ('question mark ("?")') with validation-error, zero Jira/KVS calls, and intact state 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints reject invalid score ('numeric string ("5")') with validation-error, zero Jira/KVS calls, and intact state 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints reject invalid score ('numeric string ("0")') with validation-error, zero Jira/KVS calls, and intact state 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints reject invalid score ('score null') with validation-error, zero Jira/KVS calls, and intact state 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints reject invalid score ('score undefined') with validation-error, zero Jira/KVS calls, and intact state 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints reject invalid score ('empty payload object') with validation-error, zero Jira/KVS calls, and intact state 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints reject invalid score ('missing payload') with validation-error, zero Jira/KVS calls, and intact state 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints reject invalid score ('null payload') with validation-error, zero Jira/KVS calls, and intact state 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints reject invalid score ('array payload') with validation-error, zero Jira/KVS calls, and intact state 0ms
+     → not implemented
+   × R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints reject invalid score ('class instance payload') with validation-error, zero Jira/KVS calls, and intact state 0ms
+     → not implemented
+   × R2: Authenticated host context isolation, spoofing defense, and idle uninitialized snapshots > validates extractAuthenticatedContext including colon-delimited Atlassian accountIds and issueKey normalization 0ms
+     → not implemented
+   × R2: Authenticated host context isolation, spoofing defense, and idle uninitialized snapshots > all 7 resolver handlers reject invalid host context ('undefined context') with validation-error and zero KVS or Jira I/O 0ms
+     → not implemented
+   × R2: Authenticated host context isolation, spoofing defense, and idle uninitialized snapshots > all 7 resolver handlers reject invalid host context ('null context') with validation-error and zero KVS or Jira I/O 0ms
+     → not implemented
+   × R2: Authenticated host context isolation, spoofing defense, and idle uninitialized snapshots > all 7 resolver handlers reject invalid host context ('array context') with validation-error and zero KVS or Jira I/O 0ms
+     → not implemented
+   × R2: Authenticated host context isolation, spoofing defense, and idle uninitialized snapshots > all 7 resolver handlers reject invalid host context ('Date context') with validation-error and zero KVS or Jira I/O 0ms
+     → not implemented
+   × R2: Authenticated host context isolation, spoofing defense, and idle uninitialized snapshots > all 7 resolver handlers reject invalid host context ('missing accountId') with validation-error and zero KVS or Jira I/O 0ms
+     → not implemented
+   × R2: Authenticated host context isolation, spoofing defense, and idle uninitialized snapshots > all 7 resolver handlers reject invalid host context ('blank accountId') with validation-error and zero KVS or Jira I/O 0ms
+     → not implemented
+   × R2: Authenticated host context isolation, spoofing defense, and idle uninitialized snapshots > all 7 resolver handlers reject invalid host context ('whitespace-padded accountId') with validation-error and zero KVS or Jira I/O 0ms
+     → not implemented
+   × R2: Authenticated host context isolation, spoofing defense, and idle uninitialized snapshots > all 7 resolver handlers reject invalid host context ('overlong 129-char accountId') with validation-error and zero KVS or Jira I/O 0ms
+     → not implemented
+   × R2: Authenticated host context isolation, spoofing defense, and idle uninitialized snapshots > all 7 resolver handlers reject invalid host context ('slash in accountId') with validation-error and zero KVS or Jira I/O 0ms
+     → not implemented
+   × R2: Authenticated host context isolation, spoofing defense, and idle uninitialized snapshots > all 7 resolver handlers reject invalid host context ('backslash in accountId') with validation-error and zero KVS or Jira I/O 0ms
+     → not implemented
+   × R2: Authenticated host context isolation, spoofing defense, and idle uninitialized snapshots > all 7 resolver handlers reject invalid host context ('missing extension') with validation-error and zero KVS or Jira I/O 0ms
+     → not implemented
+   × R2: Authenticated host context isolation, spoofing defense, and idle uninitialized snapshots > all 7 resolver handlers reject invalid host context ('missing issue.id') with validation-error and zero KVS or Jira I/O 0ms
+     → not implemented
+   × R2: Authenticated host context isolation, spoofing defense, and idle uninitialized snapshots > all 7 resolver handlers reject invalid host context ('numeric issue.id') with validation-error and zero KVS or Jira I/O 0ms
+     → not implemented
+   × R2: Authenticated host context isolation, spoofing defense, and idle uninitialized snapshots > all 7 resolver handlers reject invalid host context ('blank issue.id') with validation-error and zero KVS or Jira I/O 0ms
+     → not implemented
+   × R2: Authenticated host context isolation, spoofing defense, and idle uninitialized snapshots > all 7 resolver handlers reject invalid host context ('whitespace-padded issue.id') with validation-error and zero KVS or Jira I/O 0ms
+     → not implemented
+   × R2: Authenticated host context isolation, spoofing defense, and idle uninitialized snapshots > all 7 resolver handlers reject invalid host context ('overlong 129-char issue.id') with validation-error and zero KVS or Jira I/O 0ms
+     → not implemented
+   × R2: Authenticated host context isolation, spoofing defense, and idle uninitialized snapshots > all 7 resolver handlers reject invalid host context ('path traversal slash in issue.id') with validation-error and zero KVS or Jira I/O 0ms
+     → not implemented
+   × R2: Authenticated host context isolation, spoofing defense, and idle uninitialized snapshots > all 7 resolver handlers reject invalid host context ('null byte in issue.id') with validation-error and zero KVS or Jira I/O 0ms
+     → not implemented
+   × R2: Authenticated host context isolation, spoofing defense, and idle uninitialized snapshots > returns an idle voting snapshot with 0 participants and null card/score fields on uninitialized issues with zero KVS writes 0ms
+     → not implemented
+   × R2: Authenticated host context isolation, spoofing defense, and idle uninitialized snapshots > scopes all 7 handlers strictly to context.extension.issue.id and context.accountId while ignoring spoofed payload fields across Issue A vs Issue B 0ms
+     → not implemented
+   × R2: Authenticated host context isolation, spoofing defense, and idle uninitialized snapshots > registers all 7 RESOLVER_KEYS via registerPokerResolvers and returns the resolver instance 1ms
+     → not implemented
+   × R3: Voting, updating, withdrawing, toggle-off, individual vote expiry, and revealed-round rejection > records an initial vote, updates card (5 -> 8), removes via withdrawVote, and toggles off same active card with zero profile fetches 0ms
+     → not implemented
+   × R3: Voting, updating, withdrawing, toggle-off, individual vote expiry, and revealed-round rejection > treats stored voter record as active only when !isRoundExpired(vote.votedAt, nowMs) in castVote and withdrawVote 0ms
+     → not implemented
+   × R3: Voting, updating, withdrawing, toggle-off, individual vote expiry, and revealed-round rejection > rejects castVote and withdrawVote during an active revealed round with invalid-state and zero Jira calls 0ms
+     → not implemented
+   × R4: Concurrent Promise.all voting isolation and >100-voter KVS cursor pagination > persists 5 simultaneous Promise.all votes on an active voting round with zero lost updates 0ms
+     → not implemented
+   × R4: Concurrent Promise.all voting isolation and >100-voter KVS cursor pagination > persists 5 simultaneous Promise.all first votes on an idle issue and on an expired round via deterministic nextRoundId 0ms
+     → not implemented
+   × R4: Concurrent Promise.all voting isolation and >100-voter KVS cursor pagination > persists concurrent peer vote update (3 -> 5), withdrawal, and new vote (13) without lost updates 0ms
+     → not implemented
+   × R4: Concurrent Promise.all voting isolation and >100-voter KVS cursor pagination > retrieves 100% of 125 voters across KVS cursor pages on getSession/revealVotes and deletes 100% on resetRound and applyStoryPoints 0ms
+     → not implemented
+   × R5: Voter-only projection, deterministic ordering, Unknown User fallback, vote secrecy, and realtime PII omission > orders active voters by votedAt then accountId, redacts peer cards during voting, exposes viewerCard only to voter, and omits cards/PII from realtime 0ms
+     → not implemented
+   × R6: Open democratic revealVotes transition, 0-vote/idle/reset rejection, and idempotent repeat reveal > allows a non-voting observer to reveal votes, computing average/recommendedScore/targetScore and publishing SESSION_UPDATED 0ms
+     → not implemented
+   × R6: Open democratic revealVotes transition, 0-vote/idle/reset rejection, and idempotent repeat reveal > rejects revealVotes on idle, 0-vote voting, reset, and all-votes-expired rounds with precondition-failed and zero Jira calls 0ms
+     → not implemented
+   × R6: Open democratic revealVotes transition, 0-vote/idle/reset rejection, and idempotent repeat reveal > handles repeat/concurrent revealVotes on an active revealed round idempotently while preserving targetScore override and making zero KVS writes 0ms
+     → not implemented
+   × R8: Post-reveal consensus override via selectOverrideScore > allows any viewer to override targetScore on numeric and all-"?" revealed rounds while preserving votes and recommendedScore 0ms
+     → not implemented
+   × R8: Post-reveal consensus override via selectOverrideScore > rejects selectOverrideScore on idle, voting, or expired rounds with invalid-state and zero Jira calls 0ms
+     → not implemented
+   × R9: Round reset (Re-vote) and exact 24-hour inactivity expiration boundaries > resetRound writes fresh voting roundId before deleting prior-round votes and publishes SESSION_UPDATED 0ms
+     → not implemented
+   × R9: Round reset (Re-vote) and exact 24-hour inactivity expiration boundaries > keeps rounds active at 86_399_999 ms elapsed and under negative clock skew, and expires at >= 86_400_000 ms without extending updatedAt 0ms
+     → not implemented
+   × R10: Story Points field population across all 6 SessionSnapshot handlers and graceful editmeta fallback > populates snapshot.storyPointsField exactly once per non-throwing call across all 6 SessionSnapshot-returning handlers 0ms
+     → not implemented
+   × R10: Story Points field population across all 6 SessionSnapshot handlers and graceful editmeta fallback > returns storyPointsField: null without failing any of the 6 SessionSnapshot handlers when editmeta fails ('403 read-only viewer') 0ms
+     → not implemented
+   × R10: Story Points field population across all 6 SessionSnapshot handlers and graceful editmeta fallback > returns storyPointsField: null without failing any of the 6 SessionSnapshot handlers when editmeta fails ('401 unauthenticated') 0ms
+     → not implemented
+   × R10: Story Points field population across all 6 SessionSnapshot handlers and graceful editmeta fallback > returns storyPointsField: null without failing any of the 6 SessionSnapshot handlers when editmeta fails ('500 Jira error') 0ms
+     → not implemented
+   × R10: Story Points field population across all 6 SessionSnapshot handlers and graceful editmeta fallback > returns storyPointsField: null without failing any of the 6 SessionSnapshot handlers when editmeta fails ('malformed JSON') 0ms
+     → not implemented
+   × R10: Story Points field population across all 6 SessionSnapshot handlers and graceful editmeta fallback > returns storyPointsField: null without failing any of the 6 SessionSnapshot handlers when editmeta fails ('transport exception') 0ms
+     → not implemented
+   × R10: Story Points field population across all 6 SessionSnapshot handlers and graceful editmeta fallback > returns storyPointsField: null without failing any of the 6 SessionSnapshot handlers when editmeta fails ('empty fields map') 0ms
+     → not implemented
+   × R11: User-attributed applyStoryPoints write-back, failure atomicity, and post-commit realtime resilience > rejects applyStoryPoints on idle, voting, or expired rounds with invalid-state before calling Jira 0ms
+     → not implemented
+   × R11: User-attributed applyStoryPoints write-back, failure atomicity, and post-commit realtime resilience > writes score (including 0) via PUT /rest/api/3/issue/{issueId}, clears round, publishes points-applied, and avoids duplicate editmeta calls 0ms
+     → not implemented
+   × R11: User-attributed applyStoryPoints write-back, failure atomicity, and post-commit realtime resilience > leaves revealed round, votes, and targetScore completely intact when applyStoryPoints fails ('missing Story Points field on issue s…') 0ms
+     → not implemented
+   × R11: User-attributed applyStoryPoints write-back, failure atomicity, and post-commit realtime resilience > leaves revealed round, votes, and targetScore completely intact when applyStoryPoints fails ('HTTP 403 forbidden on PUT issue') 0ms
+     → not implemented
+   × R11: User-attributed applyStoryPoints write-back, failure atomicity, and post-commit realtime resilience > leaves revealed round, votes, and targetScore completely intact when applyStoryPoints fails ('HTTP 401 unauthorized on editmeta') 0ms
+     → not implemented
+   × R11: User-attributed applyStoryPoints write-back, failure atomicity, and post-commit realtime resilience > leaves revealed round, votes, and targetScore completely intact when applyStoryPoints fails ('HTTP 500 error on PUT issue') 0ms
+     → not implemented
+   × R11: User-attributed applyStoryPoints write-back, failure atomicity, and post-commit realtime resilience > leaves revealed round, votes, and targetScore completely intact when applyStoryPoints fails ('HTTP 400 validation failure on PUT is…') 0ms
+     → not implemented
+   × R11: User-attributed applyStoryPoints write-back, failure atomicity, and post-commit realtime resilience > leaves revealed round, votes, and targetScore completely intact when applyStoryPoints fails ('network transport failure on PUT issue') 0ms
+     → not implemented
+   × R11: User-attributed applyStoryPoints write-back, failure atomicity, and post-commit realtime resilience > degrades gracefully when @forge/realtime publish rejects after applyStoryPoints and castVote commits 0ms
+     → not implemented
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/backend/observability-and-manifest.test.ts [ tests/backend/observability-and-manifest.test.ts ]
+TypeError: The URL must be of scheme file
+ ❯ tests/backend/observability-and-manifest.test.ts:14:28
+     12| import { createMemoryLogSink } from '../helpers/forge-doubles'
+     13| 
+     14| const REPO_MANIFEST_YAML = readFileSync(new URL('../../manifest.yml', …
+       |                            ^
+     15| 
+     16| class CustomClassMetadata {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/160]⎯
+
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 159 ⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/backend/forge-sdk-wiring.test.ts > Forge SDK default wiring and src/index.ts entrypoint registration (R2, R10, R11, R14) > src/index.ts registers all 7 RESOLVER_KEYS on @forge/resolver and exports handler definitions
+AssertionError: expected [] to deeply equal [ Array(7) ]
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [[39m
+[32m-   "applyStoryPoints",[39m
+[32m-   "castVote",[39m
+[32m-   "getSession",[39m
+[32m-   "resetRound",[39m
+[32m-   "revealVotes",[39m
+[32m-   "selectOverrideScore",[39m
+[32m-   "withdrawVote",[39m
+[32m- ][39m
+[31m+ [][39m
+
+ ❯ tests/backend/forge-sdk-wiring.test.ts:132:64
+    130|   it('src/index.ts registers all 7 RESOLVER_KEYS on @forge/resolver an…
+    131|     expect(handler).toBeDefined()
+    132|     expect(Array.from(sdkState.definedHandlers.keys()).sort()).toEqual…
+       |                                                                ^
+    133| 
+    134|     const castVoteFn = sdkState.definedHandlers.get('castVote')
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/160]⎯
+
+ FAIL  tests/backend/forge-sdk-wiring.test.ts > Forge SDK default wiring and src/index.ts entrypoint registration (R2, R10, R11, R14) > defaults createSessionStore, createJiraClient, and createRealtimePublisher to @forge/kvs, api.asUser(), and @forge/realtime
+Error: not implemented
+ ❯ Module.createSessionStore src/storage/session-store.ts:77:9
+     75| 
+     76| export function createSessionStore(_kvsClient?: KvsClientLike): Sessio…
+     77|   throw new Error('not implemented')
+       |         ^
+     78| }
+     79| 
+ ❯ tests/backend/forge-sdk-wiring.test.ts:163:19
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/160]⎯
+
+ FAIL  tests/backend/jira-and-realtime.test.ts > Realtime publisher channel events, redaction, and best-effort resilience (R5, R11, R14) > exposes POKER_REALTIME_CHANNEL as "scrum-poker" and publishes card-free, PII-free events
+Error: not implemented
+ ❯ createBackendLogger src/observability/logger.ts:45:9
+     43| 
+     44| export function createBackendLogger(_options?: CreateBackendLoggerOpti…
+     45|   throw new Error('not implemented')
+       |         ^
+     46| }
+     47| 
+ ❯ tests/backend/jira-and-realtime.test.ts:21:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/160]⎯
+
+ FAIL  tests/backend/jira-and-realtime.test.ts > Realtime publisher channel events, redaction, and best-effort resilience (R5, R11, R14) > rejects invalid roundId, non-finite updatedAt, or non-Fibonacci score with validation-error
+Error: not implemented
+ ❯ createBackendLogger src/observability/logger.ts:45:9
+     43| 
+     44| export function createBackendLogger(_options?: CreateBackendLoggerOpti…
+     45|   throw new Error('not implemented')
+       |         ^
+     46| }
+     47| 
+ ❯ tests/backend/jira-and-realtime.test.ts:73:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/160]⎯
+
+ FAIL  tests/backend/jira-and-realtime.test.ts > Realtime publisher channel events, redaction, and best-effort resilience (R5, R11, R14) > degrades gracefully when @forge/realtime publish rejects, logging a redacted WARN entry without rethrowing
+Error: not implemented
+ ❯ createBackendLogger src/observability/logger.ts:45:9
+     43| 
+     44| export function createBackendLogger(_options?: CreateBackendLoggerOpti…
+     45|   throw new Error('not implemented')
+       |         ^
+     46| }
+     47| 
+ ❯ tests/backend/jira-and-realtime.test.ts:97:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/160]⎯
+
+ FAIL  tests/backend/jira-and-realtime.test.ts > JiraClient current-user profile lookup and PII stripping (R5, R14) > fetches /rest/api/3/myself, normalizes displayName, applies avatarUrl priority order, and strips emailAddress
+Error: not implemented
+ ❯ createBackendLogger src/observability/logger.ts:45:9
+     43| 
+     44| export function createBackendLogger(_options?: CreateBackendLoggerOpti…
+     45|   throw new Error('not implemented')
+       |         ^
+     46| }
+     47| 
+ ❯ tests/backend/jira-and-realtime.test.ts:117:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/160]⎯
+
+ FAIL  tests/backend/jira-and-realtime.test.ts > JiraClient current-user profile lookup and PII stripping (R5, R14) > falls back to Unknown User and logs redacted WARN when /rest/api/3/myself fails ('HTTP 500 error')
+ FAIL  tests/backend/jira-and-realtime.test.ts > JiraClient current-user profile lookup and PII stripping (R5, R14) > falls back to Unknown User and logs redacted WARN when /rest/api/3/myself fails ('HTTP 403 forbidden')
+ FAIL  tests/backend/jira-and-realtime.test.ts > JiraClient current-user profile lookup and PII stripping (R5, R14) > falls back to Unknown User and logs redacted WARN when /rest/api/3/myself fails ('malformed JSON body')
+ FAIL  tests/backend/jira-and-realtime.test.ts > JiraClient current-user profile lookup and PII stripping (R5, R14) > falls back to Unknown User and logs redacted WARN when /rest/api/3/myself fails ('network transport error with sensitiv…')
+Error: not implemented
+ ❯ createBackendLogger src/observability/logger.ts:45:9
+     43| 
+     44| export function createBackendLogger(_options?: CreateBackendLoggerOpti…
+     45|   throw new Error('not implemented')
+       |         ^
+     46| }
+     47| 
+ ❯ tests/backend/jira-and-realtime.test.ts:227:22
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/160]⎯
+
+ FAIL  tests/backend/jira-and-realtime.test.ts > JiraClient Story Points editmeta detection and atomic PUT write-back (R10, R11, R14) > detects Story Points with tier precedence and lexicographical fieldId tie-breaking via GET editmeta
+Error: not implemented
+ ❯ createBackendLogger src/observability/logger.ts:45:9
+     43| 
+     44| export function createBackendLogger(_options?: CreateBackendLoggerOpti…
+     45|   throw new Error('not implemented')
+       |         ^
+     46| }
+     47| 
+ ❯ tests/backend/jira-and-realtime.test.ts:247:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/160]⎯
+
+ FAIL  tests/backend/jira-and-realtime.test.ts > JiraClient Story Points editmeta detection and atomic PUT write-back (R10, R11, R14) > returns null silently on 401/403 editmeta and returns null with WARN on 404/500/malformed/transport/non-matching
+Error: not implemented
+ ❯ createBackendLogger src/observability/logger.ts:45:9
+     43| 
+     44| export function createBackendLogger(_options?: CreateBackendLoggerOpti…
+     45|   throw new Error('not implemented')
+       |         ^
+     46| }
+     47| 
+ ❯ tests/backend/jira-and-realtime.test.ts:308:22
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/160]⎯
+
+ FAIL  tests/backend/jira-and-realtime.test.ts > JiraClient Story Points editmeta detection and atomic PUT write-back (R10, R11, R14) > writes Story Points (including 0) via PUT /rest/api/3/issue/{issueId} and maps missing-field, forbidden, and jira-error outcomes
+Error: not implemented
+ ❯ createBackendLogger src/observability/logger.ts:45:9
+     43| 
+     44| export function createBackendLogger(_options?: CreateBackendLoggerOpti…
+     45|   throw new Error('not implemented')
+       |         ^
+     46| }
+     47| 
+ ❯ tests/backend/jira-and-realtime.test.ts:377:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/160]⎯
+
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote accepts canonical deck card "0" and persists with 24h TTL
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote accepts canonical deck card "1" and persists with 24h TTL
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote accepts canonical deck card "2" and persists with 24h TTL
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote accepts canonical deck card "3" and persists with 24h TTL
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote accepts canonical deck card "5" and persists with 24h TTL
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote accepts canonical deck card "8" and persists with 24h TTL
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote accepts canonical deck card "13" and persists with 24h TTL
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote accepts canonical deck card "21" and persists with 24h TTL
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote accepts canonical deck card "?" and persists with 24h TTL
+Error: not implemented
+ ❯ createBackendLogger src/observability/logger.ts:45:9
+     43| 
+     44| export function createBackendLogger(_options?: CreateBackendLoggerOpti…
+     45|   throw new Error('not implemented')
+       |         ^
+     46| }
+     47| 
+ ❯ createBackendTestHarness tests/backend/poker-resolvers.test.ts:70:18
+ ❯ tests/backend/poker-resolvers.test.ts:151:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/160]⎯
+
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote accepts null-prototype plain object payloads
+Error: not implemented
+ ❯ createBackendLogger src/observability/logger.ts:45:9
+     43| 
+     44| export function createBackendLogger(_options?: CreateBackendLoggerOpti…
+     45|   throw new Error('not implemented')
+       |         ^
+     46| }
+     47| 
+ ❯ createBackendTestHarness tests/backend/poker-resolvers.test.ts:70:18
+ ❯ tests/backend/poker-resolvers.test.ts:166:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/160]⎯
+
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote rejects invalid input ('empty string') with validation-error before any KVS or Jira I/O
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote rejects invalid input ('spaces-only string') with validation-error before any KVS or Jira I/O
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote rejects invalid input ('leading whitespace (" 5")') with validation-error before any KVS or Jira I/O
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote rejects invalid input ('trailing whitespace ("5 ")') with validation-error before any KVS or Jira I/O
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote rejects invalid input ('surrounding whitespace (" 5 ")') with validation-error before any KVS or Jira I/O
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote rejects invalid input ('negative string ("-1")') with validation-error before any KVS or Jira I/O
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote rejects invalid input ('decimal string ("3.5")') with validation-error before any KVS or Jira I/O
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote rejects invalid input ('non-Fibonacci integer ("4")') with validation-error before any KVS or Jira I/O
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote rejects invalid input ('non-Fibonacci integer ("6")') with validation-error before any KVS or Jira I/O
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote rejects invalid input ('next Fibonacci outside deck ("34")') with validation-error before any KVS or Jira I/O
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote rejects invalid input ('arbitrary word ("coffee")') with validation-error before any KVS or Jira I/O
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote rejects invalid input ('card null') with validation-error before any KVS or Jira I/O
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote rejects invalid input ('card undefined') with validation-error before any KVS or Jira I/O
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote rejects invalid input ('numeric 5 instead of string') with validation-error before any KVS or Jira I/O
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote rejects invalid input ('empty object missing card') with validation-error before any KVS or Jira I/O
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote rejects invalid input ('missing payload (undefined)') with validation-error before any KVS or Jira I/O
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote rejects invalid input ('null payload') with validation-error before any KVS or Jira I/O
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote rejects invalid input ('array payload') with validation-error before any KVS or Jira I/O
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote rejects invalid input ('primitive string payload') with validation-error before any KVS or Jira I/O
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote rejects invalid input ('Date instance payload') with validation-error before any KVS or Jira I/O
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > castVote rejects invalid input ('class instance payload') with validation-error before any KVS or Jira I/O
+Error: not implemented
+ ❯ createBackendLogger src/observability/logger.ts:45:9
+     43| 
+     44| export function createBackendLogger(_options?: CreateBackendLoggerOpti…
+     45|   throw new Error('not implemented')
+       |         ^
+     46| }
+     47| 
+ ❯ createBackendTestHarness tests/backend/poker-resolvers.test.ts:70:18
+ ❯ tests/backend/poker-resolvers.test.ts:202:23
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/160]⎯
+
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints accept numeric Fibonacci score 0 on revealed round
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints accept numeric Fibonacci score 1 on revealed round
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints accept numeric Fibonacci score 2 on revealed round
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints accept numeric Fibonacci score 3 on revealed round
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints accept numeric Fibonacci score 5 on revealed round
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints accept numeric Fibonacci score 8 on revealed round
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints accept numeric Fibonacci score 13 on revealed round
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints accept numeric Fibonacci score 21 on revealed round
+Error: not implemented
+ ❯ createBackendLogger src/observability/logger.ts:45:9
+     43| 
+     44| export function createBackendLogger(_options?: CreateBackendLoggerOpti…
+     45|   throw new Error('not implemented')
+       |         ^
+     46| }
+     47| 
+ ❯ createBackendTestHarness tests/backend/poker-resolvers.test.ts:70:18
+ ❯ tests/backend/poker-resolvers.test.ts:222:31
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/160]⎯
+
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints reject invalid score ('negative zero (-0)') with validation-error, zero Jira/KVS calls, and intact state
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints reject invalid score ('negative integer (-1)') with validation-error, zero Jira/KVS calls, and intact state
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints reject invalid score ('non-Fibonacci integer (4)') with validation-error, zero Jira/KVS calls, and intact state
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints reject invalid score ('decimal (4.5)') with validation-error, zero Jira/KVS calls, and intact state
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints reject invalid score ('above max deck score (22)') with validation-error, zero Jira/KVS calls, and intact state
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints reject invalid score ('NaN') with validation-error, zero Jira/KVS calls, and intact state
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints reject invalid score ('positive Infinity') with validation-error, zero Jira/KVS calls, and intact state
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints reject invalid score ('negative Infinity') with validation-error, zero Jira/KVS calls, and intact state
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints reject invalid score ('question mark ("?")') with validation-error, zero Jira/KVS calls, and intact state
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints reject invalid score ('numeric string ("5")') with validation-error, zero Jira/KVS calls, and intact state
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints reject invalid score ('numeric string ("0")') with validation-error, zero Jira/KVS calls, and intact state
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints reject invalid score ('score null') with validation-error, zero Jira/KVS calls, and intact state
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints reject invalid score ('score undefined') with validation-error, zero Jira/KVS calls, and intact state
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints reject invalid score ('empty payload object') with validation-error, zero Jira/KVS calls, and intact state
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints reject invalid score ('missing payload') with validation-error, zero Jira/KVS calls, and intact state
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints reject invalid score ('null payload') with validation-error, zero Jira/KVS calls, and intact state
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints reject invalid score ('array payload') with validation-error, zero Jira/KVS calls, and intact state
+ FAIL  tests/backend/poker-resolvers.test.ts > R1: Deck card and numeric Fibonacci score validation at resolver boundaries > selectOverrideScore and applyStoryPoints reject invalid score ('class instance payload') with validation-error, zero Jira/KVS calls, and intact state
+Error: not implemented
+ ❯ createBackendLogger src/observability/logger.ts:45:9
+     43| 
+     44| export function createBackendLogger(_options?: CreateBackendLoggerOpti…
+     45|   throw new Error('not implemented')
+       |         ^
+     46| }
+     47| 
+ ❯ createBackendTestHarness tests/backend/poker-resolvers.test.ts:70:18
+ ❯ tests/backend/poker-resolvers.test.ts:318:23
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/160]⎯
+
+ FAIL  tests/backend/poker-resolvers.test.ts > R2: Authenticated host context isolation, spoofing defense, and idle uninitialized snapshots > validates extractAuthenticatedContext including colon-delimited Atlassian accountIds and issueKey normalization
+Error: not implemented
+ ❯ extractAuthenticatedContext src/resolvers/poker-resolvers.ts:93:9
+     91| 
+     92| export function extractAuthenticatedContext(_context: unknown): Authen…
+     93|   throw new Error('not implemented')
+       |         ^
+     94| }
+     95| 
+ ❯ tests/backend/poker-resolvers.test.ts:352:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/160]⎯
+
+ FAIL  tests/backend/poker-resolvers.test.ts > R2: Authenticated host context isolation, spoofing defense, and idle uninitialized snapshots > all 7 resolver handlers reject invalid host context ('undefined context') with validation-error and zero KVS or Jira I/O
+ FAIL  tests/backend/poker-resolvers.test.ts > R2: Authenticated host context isolation, spoofing defense, and idle uninitialized snapshots > all 7 resolver handlers reject invalid host context ('null context') with validation-error and zero KVS or Jira I/O
+ FAIL  tests/backend/poker-resolvers.test.ts > R2: Authenticated host context isolation, spoofing defense, and idle uninitialized snapshots > all 7 resolver handlers reject invalid host context ('array context') with validation-error and zero KVS or Jira I/O
+ FAIL  tests/backend/poker-resolvers.test.ts > R2: Authenticated host context isolation, spoofing defense, and idle uninitialized snapshots > all 7 resolver handlers reject invalid host context ('Date context') with validation-error and zero KVS or Jira I/O
+ FAIL  tests/backend/poker-resolvers.test.ts > R2: Authenticated host context isolation, spoofing defense, and idle uninitialized snapshots > all 7 resolver handlers reject invalid host context ('missing accountId') with validation-error and zero KVS or Jira I/O
+ FAIL  tests/backend/poker-resolvers.test.ts > R2: Authenticated host context isolation, spoofing defense, and idle uninitialized snapshots > all 7 resolver handlers reject invalid host context ('blank accountId') with validation-error and zero KVS or Jira I/O
+ FAIL  tests/backend/poker-resolvers.test.ts > R2: Authenticated host context isolation, spoofing defense, and idle uninitialized snapshots > all 7 resolver handlers reject invalid host context ('whitespace-padded accountId') with validation-error and zero KVS or Jira I/O
+ FAIL  tests/backend/poker-resolvers.test.ts > R2: Authenticated host context isolation, spoofing defense, and idle uninitialized snapshots > all 7 resolver handlers reject invalid host context ('overlong 129-char accountId') with validation-error and zero KVS or Jira I/O
+ FAIL  tests/backend/poker-resolvers.test.ts > R2: Authenticated host context isolation, spoofing defense, and idle uninitialized snapshots > all 7 resolver handlers reject invalid host context ('slash in accountId') with validation-error and zero KVS or Jira I/O
+ FAIL  tests/backend/poker-resolvers.test.ts > R2: Authenticated host context isolation, spoofing defense, and idle uninitialized snapshots > all 7 resolver handlers reject invalid host context ('backslash in accountId') with validation-error and zero KVS or Jira I/O
+ FAIL  tests/backend/poker-resolvers.test.ts > R2: Authenticated host context isolation, spoofing defense, and idle uninitialized snapshots > all 7 resolver handlers reject invalid host context ('missing extension') with validation-error and zero KVS or Jira I/O
+ FAIL  tests/backend/poker-resolvers.test.ts > R2: Authenticated host context isolation, spoofing defense, and idle uninitialized snapshots > all 7 resolver handlers reject invalid host context ('missing issue.id') with validation-error and zero KVS or Jira I/O
+ FAIL  tests/backend/poker-resolvers.test.ts > R2: Authenticated host context isolation, spoofing defense, and idle uninitialized snapshots > all 7 resolver handlers reject invalid host context ('numeric issue.id') with validation-error and zero KVS or Jira I/O
+ FAIL  tests/backend/poker-resolvers.test.ts > R2: Authenticated host context isolation, spoofing defense, and idle uninitialized snapshots > all 7 resolver handlers reject invalid host context ('blank issue.id') with validation-error and zero KVS or Jira I/O
+ FAIL  tests/backend/poker-resolvers.test.ts > R2: Authenticated host context isolation, spoofing defense, and idle uninitialized snapshots > all 7 resolver handlers reject invalid host context ('whitespace-padded issue.id') with validation-error and zero KVS or Jira I/O
+ FAIL  tests/backend/poker-resolvers.test.ts > R2: Authenticated host context isolation, spoofing defense, and idle uninitialized snapshots > all 7 resolver handlers reject invalid host context ('overlong 129-char issue.id') with validation-error and zero KVS or Jira I/O
+ FAIL  tests/backend/poker-resolvers.test.ts > R2: Authenticated host context isolation, spoofing defense, and idle uninitialized snapshots > all 7 resolver handlers reject invalid host context ('path traversal slash in issue.id') with validation-error and zero KVS or Jira I/O
+ FAIL  tests/backend/poker-resolvers.test.ts > R2: Authenticated host context isolation, spoofing defense, and idle uninitialized snapshots > all 7 resolver handlers reject invalid host context ('null byte in issue.id') with validation-error and zero KVS or Jira I/O
+Error: not implemented
+ ❯ createBackendLogger src/observability/logger.ts:45:9
+     43| 
+     44| export function createBackendLogger(_options?: CreateBackendLoggerOpti…
+     45|   throw new Error('not implemented')
+       |         ^
+     46| }
+     47| 
+ ❯ createBackendTestHarness tests/backend/poker-resolvers.test.ts:70:18
+ ❯ tests/backend/poker-resolvers.test.ts:409:23
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[18/160]⎯
+
+ FAIL  tests/backend/poker-resolvers.test.ts > R2: Authenticated host context isolation, spoofing defense, and idle uninitialized snapshots > returns an idle voting snapshot with 0 participants and null card/score fields on uninitialized issues with zero KVS writes
+Error: not implemented
+ ❯ createBackendLogger src/observability/logger.ts:45:9
+     43| 
+     44| export function createBackendLogger(_options?: CreateBackendLoggerOpti…
+     45|   throw new Error('not implemented')
+       |         ^
+     46| }
+     47| 
+ ❯ createBackendTestHarness tests/backend/poker-resolvers.test.ts:70:18
+ ❯ tests/backend/poker-resolvers.test.ts:436:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[19/160]⎯
+
+ FAIL  tests/backend/poker-resolvers.test.ts > R2: Authenticated host context isolation, spoofing defense, and idle uninitialized snapshots > scopes all 7 handlers strictly to context.extension.issue.id and context.accountId while ignoring spoofed payload fields across Issue A vs Issue B
+Error: not implemented
+ ❯ createBackendLogger src/observability/logger.ts:45:9
+     43| 
+     44| export function createBackendLogger(_options?: CreateBackendLoggerOpti…
+     45|   throw new Error('not implemented')
+       |         ^
+     46| }
+     47| 
+ ❯ createBackendTestHarness tests/backend/poker-resolvers.test.ts:70:18
+ ❯ tests/backend/poker-resolvers.test.ts:459:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[20/160]⎯
+
+ FAIL  tests/backend/poker-resolvers.test.ts > R2: Authenticated host context isolation, spoofing defense, and idle uninitialized snapshots > registers all 7 RESOLVER_KEYS via registerPokerResolvers and returns the resolver instance
+Error: not implemented
+ ❯ createBackendLogger src/observability/logger.ts:45:9
+     43| 
+     44| export function createBackendLogger(_options?: CreateBackendLoggerOpti…
+     45|   throw new Error('not implemented')
+       |         ^
+     46| }
+     47| 
+ ❯ createBackendTestHarness tests/backend/poker-resolvers.test.ts:70:18
+ ❯ tests/backend/poker-resolvers.test.ts:555:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[21/160]⎯
+
+ FAIL  tests/backend/poker-resolvers.test.ts > R3: Voting, updating, withdrawing, toggle-off, individual vote expiry, and revealed-round rejection > records an initial vote, updates card (5 -> 8), removes via withdrawVote, and toggles off same active card with zero profile fetches
+Error: not implemented
+ ❯ createBackendLogger src/observability/logger.ts:45:9
+     43| 
+     44| export function createBackendLogger(_options?: CreateBackendLoggerOpti…
+     45|   throw new Error('not implemented')
+       |         ^
+     46| }
+     47| 
+ ❯ createBackendTestHarness tests/backend/poker-resolvers.test.ts:70:18
+ ❯ tests/backend/poker-resolvers.test.ts:571:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[22/160]⎯
+
+ FAIL  tests/backend/poker-resolvers.test.ts > R3: Voting, updating, withdrawing, toggle-off, individual vote expiry, and revealed-round rejection > treats stored voter record as active only when !isRoundExpired(vote.votedAt, nowMs) in castVote and withdrawVote
+Error: not implemented
+ ❯ createBackendLogger src/observability/logger.ts:45:9
+     43| 
+     44| export function createBackendLogger(_options?: CreateBackendLoggerOpti…
+     45|   throw new Error('not implemented')
+       |         ^
+     46| }
+     47| 
+ ❯ createBackendTestHarness tests/backend/poker-resolvers.test.ts:70:18
+ ❯ tests/backend/poker-resolvers.test.ts:612:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[23/160]⎯
+
+ FAIL  tests/backend/poker-resolvers.test.ts > R3: Voting, updating, withdrawing, toggle-off, individual vote expiry, and revealed-round rejection > rejects castVote and withdrawVote during an active revealed round with invalid-state and zero Jira calls
+Error: not implemented
+ ❯ createBackendLogger src/observability/logger.ts:45:9
+     43| 
+     44| export function createBackendLogger(_options?: CreateBackendLoggerOpti…
+     45|   throw new Error('not implemented')
+       |         ^
+     46| }
+     47| 
+ ❯ createBackendTestHarness tests/backend/poker-resolvers.test.ts:70:18
+ ❯ tests/backend/poker-resolvers.test.ts:675:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[24/160]⎯
+
+ FAIL  tests/backend/poker-resolvers.test.ts > R4: Concurrent Promise.all voting isolation and >100-voter KVS cursor pagination > persists 5 simultaneous Promise.all votes on an active voting round with zero lost updates
+Error: not implemented
+ ❯ createBackendLogger src/observability/logger.ts:45:9
+     43| 
+     44| export function createBackendLogger(_options?: CreateBackendLoggerOpti…
+     45|   throw new Error('not implemented')
+       |         ^
+     46| }
+     47| 
+ ❯ createBackendTestHarness tests/backend/poker-resolvers.test.ts:70:18
+ ❯ tests/backend/poker-resolvers.test.ts:727:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[25/160]⎯
+
+ FAIL  tests/backend/poker-resolvers.test.ts > R4: Concurrent Promise.all voting isolation and >100-voter KVS cursor pagination > persists 5 simultaneous Promise.all first votes on an idle issue and on an expired round via deterministic nextRoundId
+Error: not implemented
+ ❯ createBackendLogger src/observability/logger.ts:45:9
+     43| 
+     44| export function createBackendLogger(_options?: CreateBackendLoggerOpti…
+     45|   throw new Error('not implemented')
+       |         ^
+     46| }
+     47| 
+ ❯ createBackendTestHarness tests/backend/poker-resolvers.test.ts:70:18
+ ❯ tests/backend/poker-resolvers.test.ts:754:25
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[26/160]⎯
+
+ FAIL  tests/backend/poker-resolvers.test.ts > R4: Concurrent Promise.all voting isolation and >100-voter KVS cursor pagination > persists concurrent peer vote update (3 -> 5), withdrawal, and new vote (13) without lost updates
+Error: not implemented
+ ❯ createBackendLogger src/observability/logger.ts:45:9
+     43| 
+     44| export function createBackendLogger(_options?: CreateBackendLoggerOpti…
+     45|   throw new Error('not implemented')
+       |         ^
+     46| }
+     47| 
+ ❯ createBackendTestHarness tests/backend/poker-resolvers.test.ts:70:18
+ ❯ tests/backend/poker-resolvers.test.ts:811:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[27/160]⎯
+
+ FAIL  tests/backend/poker-resolvers.test.ts > R4: Concurrent Promise.all voting isolation and >100-voter KVS cursor pagination > retrieves 100% of 125 voters across KVS cursor pages on getSession/revealVotes and deletes 100% on resetRound and applyStoryPoints
+Error: not implemented
+ ❯ createBackendLogger src/observability/logger.ts:45:9
+     43| 
+     44| export function createBackendLogger(_options?: CreateBackendLoggerOpti…
+     45|   throw new Error('not implemented')
+       |         ^
+     46| }
+     47| 
+ ❯ createBackendTestHarness tests/backend/poker-resolvers.test.ts:70:18
+ ❯ tests/backend/poker-resolvers.test.ts:882:26
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[28/160]⎯
+
+ FAIL  tests/backend/poker-resolvers.test.ts > R5: Voter-only projection, deterministic ordering, Unknown User fallback, vote secrecy, and realtime PII omission > orders active voters by votedAt then accountId, redacts peer cards during voting, exposes viewerCard only to voter, and omits cards/PII from realtime
+Error: not implemented
+ ❯ createBackendLogger src/observability/logger.ts:45:9
+     43| 
+     44| export function createBackendLogger(_options?: CreateBackendLoggerOpti…
+     45|   throw new Error('not implemented')
+       |         ^
+     46| }
+     47| 
+ ❯ createBackendTestHarness tests/backend/poker-resolvers.test.ts:70:18
+ ❯ tests/backend/poker-resolvers.test.ts:936:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[29/160]⎯
+
+ FAIL  tests/backend/poker-resolvers.test.ts > R6: Open democratic revealVotes transition, 0-vote/idle/reset rejection, and idempotent repeat reveal > allows a non-voting observer to reveal votes, computing average/recommendedScore/targetScore and publishing SESSION_UPDATED
+Error: not implemented
+ ❯ createBackendLogger src/observability/logger.ts:45:9
+     43| 
+     44| export function createBackendLogger(_options?: CreateBackendLoggerOpti…
+     45|   throw new Error('not implemented')
+       |         ^
+     46| }
+     47| 
+ ❯ createBackendTestHarness tests/backend/poker-resolvers.test.ts:70:18
+ ❯ tests/backend/poker-resolvers.test.ts:1025:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[30/160]⎯
+
+ FAIL  tests/backend/poker-resolvers.test.ts > R6: Open democratic revealVotes transition, 0-vote/idle/reset rejection, and idempotent repeat reveal > rejects revealVotes on idle, 0-vote voting, reset, and all-votes-expired rounds with precondition-failed and zero Jira calls
+Error: not implemented
+ ❯ createBackendLogger src/observability/logger.ts:45:9
+     43| 
+     44| export function createBackendLogger(_options?: CreateBackendLoggerOpti…
+     45|   throw new Error('not implemented')
+       |         ^
+     46| }
+     47| 
+ ❯ createBackendTestHarness tests/backend/poker-resolvers.test.ts:70:18
+ ❯ tests/backend/poker-resolvers.test.ts:1096:25
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[31/160]⎯
+
+ FAIL  tests/backend/poker-resolvers.test.ts > R6: Open democratic revealVotes transition, 0-vote/idle/reset rejection, and idempotent repeat reveal > handles repeat/concurrent revealVotes on an active revealed round idempotently while preserving targetScore override and making zero KVS writes
+Error: not implemented
+ ❯ createBackendLogger src/observability/logger.ts:45:9
+     43| 
+     44| export function createBackendLogger(_options?: CreateBackendLoggerOpti…
+     45|   throw new Error('not implemented')
+       |         ^
+     46| }
+     47| 
+ ❯ createBackendTestHarness tests/backend/poker-resolvers.test.ts:70:18
+ ❯ tests/backend/poker-resolvers.test.ts:1148:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[32/160]⎯
+
+ FAIL  tests/backend/poker-resolvers.test.ts > R8: Post-reveal consensus override via selectOverrideScore > allows any viewer to override targetScore on numeric and all-"?" revealed rounds while preserving votes and recommendedScore
+Error: not implemented
+ ❯ createBackendLogger src/observability/logger.ts:45:9
+     43| 
+     44| export function createBackendLogger(_options?: CreateBackendLoggerOpti…
+     45|   throw new Error('not implemented')
+       |         ^
+     46| }
+     47| 
+ ❯ createBackendTestHarness tests/backend/poker-resolvers.test.ts:70:18
+ ❯ tests/backend/poker-resolvers.test.ts:1186:28
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[33/160]⎯
+
+ FAIL  tests/backend/poker-resolvers.test.ts > R8: Post-reveal consensus override via selectOverrideScore > rejects selectOverrideScore on idle, voting, or expired rounds with invalid-state and zero Jira calls
+Error: not implemented
+ ❯ createBackendLogger src/observability/logger.ts:45:9
+     43| 
+     44| export function createBackendLogger(_options?: CreateBackendLoggerOpti…
+     45|   throw new Error('not implemented')
+       |         ^
+     46| }
+     47| 
+ ❯ createBackendTestHarness tests/backend/poker-resolvers.test.ts:70:18
+ ❯ tests/backend/poker-resolvers.test.ts:1279:23
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[34/160]⎯
+
+ FAIL  tests/backend/poker-resolvers.test.ts > R9: Round reset (Re-vote) and exact 24-hour inactivity expiration boundaries > resetRound writes fresh voting roundId before deleting prior-round votes and publishes SESSION_UPDATED
+Error: not implemented
+ ❯ createBackendLogger src/observability/logger.ts:45:9
+     43| 
+     44| export function createBackendLogger(_options?: CreateBackendLoggerOpti…
+     45|   throw new Error('not implemented')
+       |         ^
+     46| }
+     47| 
+ ❯ createBackendTestHarness tests/backend/poker-resolvers.test.ts:70:18
+ ❯ tests/backend/poker-resolvers.test.ts:1300:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[35/160]⎯
+
+ FAIL  tests/backend/poker-resolvers.test.ts > R9: Round reset (Re-vote) and exact 24-hour inactivity expiration boundaries > keeps rounds active at 86_399_999 ms elapsed and under negative clock skew, and expires at >= 86_400_000 ms without extending updatedAt
+Error: not implemented
+ ❯ createBackendLogger src/observability/logger.ts:45:9
+     43| 
+     44| export function createBackendLogger(_options?: CreateBackendLoggerOpti…
+     45|   throw new Error('not implemented')
+       |         ^
+     46| }
+     47| 
+ ❯ createBackendTestHarness tests/backend/poker-resolvers.test.ts:70:18
+ ❯ tests/backend/poker-resolvers.test.ts:1355:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[36/160]⎯
+
+ FAIL  tests/backend/poker-resolvers.test.ts > R10: Story Points field population across all 6 SessionSnapshot handlers and graceful editmeta fallback > populates snapshot.storyPointsField exactly once per non-throwing call across all 6 SessionSnapshot-returning handlers
+Error: not implemented
+ ❯ createBackendLogger src/observability/logger.ts:45:9
+     43| 
+     44| export function createBackendLogger(_options?: CreateBackendLoggerOpti…
+     45|   throw new Error('not implemented')
+       |         ^
+     46| }
+     47| 
+ ❯ createBackendTestHarness tests/backend/poker-resolvers.test.ts:70:18
+ ❯ tests/backend/poker-resolvers.test.ts:1454:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[37/160]⎯
+
+ FAIL  tests/backend/poker-resolvers.test.ts > R10: Story Points field population across all 6 SessionSnapshot handlers and graceful editmeta fallback > returns storyPointsField: null without failing any of the 6 SessionSnapshot handlers when editmeta fails ('403 read-only viewer')
+ FAIL  tests/backend/poker-resolvers.test.ts > R10: Story Points field population across all 6 SessionSnapshot handlers and graceful editmeta fallback > returns storyPointsField: null without failing any of the 6 SessionSnapshot handlers when editmeta fails ('401 unauthenticated')
+ FAIL  tests/backend/poker-resolvers.test.ts > R10: Story Points field population across all 6 SessionSnapshot handlers and graceful editmeta fallback > returns storyPointsField: null without failing any of the 6 SessionSnapshot handlers when editmeta fails ('500 Jira error')
+ FAIL  tests/backend/poker-resolvers.test.ts > R10: Story Points field population across all 6 SessionSnapshot handlers and graceful editmeta fallback > returns storyPointsField: null without failing any of the 6 SessionSnapshot handlers when editmeta fails ('malformed JSON')
+ FAIL  tests/backend/poker-resolvers.test.ts > R10: Story Points field population across all 6 SessionSnapshot handlers and graceful editmeta fallback > returns storyPointsField: null without failing any of the 6 SessionSnapshot handlers when editmeta fails ('transport exception')
+ FAIL  tests/backend/poker-resolvers.test.ts > R10: Story Points field population across all 6 SessionSnapshot handlers and graceful editmeta fallback > returns storyPointsField: null without failing any of the 6 SessionSnapshot handlers when editmeta fails ('empty fields map')
+Error: not implemented
+ ❯ createBackendLogger src/observability/logger.ts:45:9
+     43| 
+     44| export function createBackendLogger(_options?: CreateBackendLoggerOpti…
+     45|   throw new Error('not implemented')
+       |         ^
+     46| }
+     47| 
+ ❯ createBackendTestHarness tests/backend/poker-resolvers.test.ts:70:18
+ ❯ tests/backend/poker-resolvers.test.ts:1511:23
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[38/160]⎯
+
+ FAIL  tests/backend/poker-resolvers.test.ts > R11: User-attributed applyStoryPoints write-back, failure atomicity, and post-commit realtime resilience > rejects applyStoryPoints on idle, voting, or expired rounds with invalid-state before calling Jira
+Error: not implemented
+ ❯ createBackendLogger src/observability/logger.ts:45:9
+     43| 
+     44| export function createBackendLogger(_options?: CreateBackendLoggerOpti…
+     45|   throw new Error('not implemented')
+       |         ^
+     46| }
+     47| 
+ ❯ createBackendTestHarness tests/backend/poker-resolvers.test.ts:70:18
+ ❯ tests/backend/poker-resolvers.test.ts:1538:23
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[39/160]⎯
+
+ FAIL  tests/backend/poker-resolvers.test.ts > R11: User-attributed applyStoryPoints write-back, failure atomicity, and post-commit realtime resilience > writes score (including 0) via PUT /rest/api/3/issue/{issueId}, clears round, publishes points-applied, and avoids duplicate editmeta calls
+Error: not implemented
+ ❯ createBackendLogger src/observability/logger.ts:45:9
+     43| 
+     44| export function createBackendLogger(_options?: CreateBackendLoggerOpti…
+     45|   throw new Error('not implemented')
+       |         ^
+     46| }
+     47| 
+ ❯ createBackendTestHarness tests/backend/poker-resolvers.test.ts:70:18
+ ❯ tests/backend/poker-resolvers.test.ts:1558:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[40/160]⎯
+
+ FAIL  tests/backend/poker-resolvers.test.ts > R11: User-attributed applyStoryPoints write-back, failure atomicity, and post-commit realtime resilience > leaves revealed round, votes, and targetScore completely intact when applyStoryPoints fails ('missing Story Points field on issue s…')
+ FAIL  tests/backend/poker-resolvers.test.ts > R11: User-attributed applyStoryPoints write-back, failure atomicity, and post-commit realtime resilience > leaves revealed round, votes, and targetScore completely intact when applyStoryPoints fails ('HTTP 403 forbidden on PUT issue')
+ FAIL  tests/backend/poker-resolvers.test.ts > R11: User-attributed applyStoryPoints write-back, failure atomicity, and post-commit realtime resilience > leaves revealed round, votes, and targetScore completely intact when applyStoryPoints fails ('HTTP 401 unauthorized on editmeta')
+ FAIL  tests/backend/poker-resolvers.test.ts > R11: User-attributed applyStoryPoints write-back, failure atomicity, and post-commit realtime resilience > leaves revealed round, votes, and targetScore completely intact when applyStoryPoints fails ('HTTP 500 error on PUT issue')
+ FAIL  tests/backend/poker-resolvers.test.ts > R11: User-attributed applyStoryPoints write-back, failure atomicity, and post-commit realtime resilience > leaves revealed round, votes, and targetScore completely intact when applyStoryPoints fails ('HTTP 400 validation failure on PUT is…')
+ FAIL  tests/backend/poker-resolvers.test.ts > R11: User-attributed applyStoryPoints write-back, failure atomicity, and post-commit realtime resilience > leaves revealed round, votes, and targetScore completely intact when applyStoryPoints fails ('network transport failure on PUT issue')
+Error: not implemented
+ ❯ createBackendLogger src/observability/logger.ts:45:9
+     43| 
+     44| export function createBackendLogger(_options?: CreateBackendLoggerOpti…
+     45|   throw new Error('not implemented')
+       |         ^
+     46| }
+     47| 
+ ❯ createBackendTestHarness tests/backend/poker-resolvers.test.ts:70:18
+ ❯ tests/backend/poker-resolvers.test.ts:1681:23
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[41/160]⎯
+
+ FAIL  tests/backend/poker-resolvers.test.ts > R11: User-attributed applyStoryPoints write-back, failure atomicity, and post-commit realtime resilience > degrades gracefully when @forge/realtime publish rejects after applyStoryPoints and castVote commits
+Error: not implemented
+ ❯ createBackendLogger src/observability/logger.ts:45:9
+     43| 
+     44| export function createBackendLogger(_options?: CreateBackendLoggerOpti…
+     45|   throw new Error('not implemented')
+       |         ^
+     46| }
+     47| 
+ ❯ createBackendTestHarness tests/backend/poker-resolvers.test.ts:70:18
+ ❯ tests/backend/poker-resolvers.test.ts:1711:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[42/160]⎯
+
+ FAIL  tests/backend/session-store.test.ts > Session store identifier guards, key builders, and round progression (R2, R4, R9) > accepts valid identifier ('single-character identifier') via assertSafeIdentifier
+ FAIL  tests/backend/session-store.test.ts > Session store identifier guards, key builders, and round progression (R2, R4, R9) > accepts valid identifier ('numeric Jira issue ID string') via assertSafeIdentifier
+ FAIL  tests/backend/session-store.test.ts > Session store identifier guards, key builders, and round progression (R2, R4, R9) > accepts valid identifier ('Jira issue key') via assertSafeIdentifier
+ FAIL  tests/backend/session-store.test.ts > Session store identifier guards, key builders, and round progression (R2, R4, R9) > accepts valid identifier ('colon-delimited Atlassian accountId') via assertSafeIdentifier
+ FAIL  tests/backend/session-store.test.ts > Session store identifier guards, key builders, and round progression (R2, R4, R9) > accepts valid identifier ('exact 128-character upper boundary') via assertSafeIdentifier
+Error: not implemented
+ ❯ assertSafeIdentifier src/storage/session-store.ts:57:9
+     55| 
+     56| export function assertSafeIdentifier(_value: unknown, _label: string):…
+     57|   throw new Error('not implemented')
+       |         ^
+     58| }
+     59| 
+ ❯ tests/backend/session-store.test.ts:30:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[43/160]⎯
+
+ FAIL  tests/backend/session-store.test.ts > Session store identifier guards, key builders, and round progression (R2, R4, R9) > rejects invalid identifier ('empty string') with PokerDomainError validation-error referencing label
+ FAIL  tests/backend/session-store.test.ts > Session store identifier guards, key builders, and round progression (R2, R4, R9) > rejects invalid identifier ('whitespace-only string') with PokerDomainError validation-error referencing label
+ FAIL  tests/backend/session-store.test.ts > Session store identifier guards, key builders, and round progression (R2, R4, R9) > rejects invalid identifier ('leading space') with PokerDomainError validation-error referencing label
+ FAIL  tests/backend/session-store.test.ts > Session store identifier guards, key builders, and round progression (R2, R4, R9) > rejects invalid identifier ('trailing space') with PokerDomainError validation-error referencing label
+ FAIL  tests/backend/session-store.test.ts > Session store identifier guards, key builders, and round progression (R2, R4, R9) > rejects invalid identifier ('tab prefix') with PokerDomainError validation-error referencing label
+ FAIL  tests/backend/session-store.test.ts > Session store identifier guards, key builders, and round progression (R2, R4, R9) > rejects invalid identifier ('newline suffix') with PokerDomainError validation-error referencing label
+ FAIL  tests/backend/session-store.test.ts > Session store identifier guards, key builders, and round progression (R2, R4, R9) > rejects invalid identifier ('129-character overlong identifier (ma…') with PokerDomainError validation-error referencing label
+ FAIL  tests/backend/session-store.test.ts > Session store identifier guards, key builders, and round progression (R2, R4, R9) > rejects invalid identifier ('forward slash path separator') with PokerDomainError validation-error referencing label
+ FAIL  tests/backend/session-store.test.ts > Session store identifier guards, key builders, and round progression (R2, R4, R9) > rejects invalid identifier ('backslash path separator') with PokerDomainError validation-error referencing label
+ FAIL  tests/backend/session-store.test.ts > Session store identifier guards, key builders, and round progression (R2, R4, R9) > rejects invalid identifier ('null byte character') with PokerDomainError validation-error referencing label
+ FAIL  tests/backend/session-store.test.ts > Session store identifier guards, key builders, and round progression (R2, R4, R9) > rejects invalid identifier ('numeric value instead of string') with PokerDomainError validation-error referencing label
+ FAIL  tests/backend/session-store.test.ts > Session store identifier guards, key builders, and round progression (R2, R4, R9) > rejects invalid identifier ('null') with PokerDomainError validation-error referencing label
+ FAIL  tests/backend/session-store.test.ts > Session store identifier guards, key builders, and round progression (R2, R4, R9) > rejects invalid identifier ('undefined') with PokerDomainError validation-error referencing label
+ FAIL  tests/backend/session-store.test.ts > Session store identifier guards, key builders, and round progression (R2, R4, R9) > rejects invalid identifier ('plain object') with PokerDomainError validation-error referencing label
+AssertionError: expected Error: not implemented to be an instance of PokerDomainError
+ ❯ expectPokerDomainError tests/helpers/domain-errors.ts:16:18
+     14|   expect(didThrow).toBe(true)
+     15|   expect(caught).toBeInstanceOf(Error)
+     16|   expect(caught).toBeInstanceOf(PokerDomainError)
+       |                  ^
+     17| 
+     18|   const domainError = caught as PokerDomainError
+ ❯ tests/backend/session-store.test.ts:49:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[44/160]⎯
+
+ FAIL  tests/backend/session-store.test.ts > Session store identifier guards, key builders, and round progression (R2, R4, R9) > constructs isolated KVS metadata and per-voter keys and rejects unsafe segments
+Error: not implemented
+ ❯ buildMetaKey src/storage/session-store.ts:61:9
+     59| 
+     60| export function buildMetaKey(_issueId: string): string {
+     61|   throw new Error('not implemented')
+       |         ^
+     62| }
+     63| 
+ ❯ tests/backend/session-store.test.ts:54:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[45/160]⎯
+
+ FAIL  tests/backend/session-store.test.ts > Session store identifier guards, key builders, and round progression (R2, R4, R9) > computes deterministic nextRoundId ('undefined -> round-1')
+ FAIL  tests/backend/session-store.test.ts > Session store identifier guards, key builders, and round progression (R2, R4, R9) > computes deterministic nextRoundId ('null -> round-1')
+ FAIL  tests/backend/session-store.test.ts > Session store identifier guards, key builders, and round progression (R2, R4, R9) > computes deterministic nextRoundId ('round-1 -> round-2')
+ FAIL  tests/backend/session-store.test.ts > Session store identifier guards, key builders, and round progression (R2, R4, R9) > computes deterministic nextRoundId ('round-99 -> round-100')
+ FAIL  tests/backend/session-store.test.ts > Session store identifier guards, key builders, and round progression (R2, R4, R9) > computes deterministic nextRoundId ('r-2 -> r-3')
+ FAIL  tests/backend/session-store.test.ts > Session store identifier guards, key builders, and round progression (R2, R4, R9) > computes deterministic nextRoundId ('BigInt precision beyond MAX_SAFE_INTE…')
+ FAIL  tests/backend/session-store.test.ts > Session store identifier guards, key builders, and round progression (R2, R4, R9) > computes deterministic nextRoundId ('non-numbered identifier appends -2')
+ FAIL  tests/backend/session-store.test.ts > Session store identifier guards, key builders, and round progression (R2, R4, R9) > computes deterministic nextRoundId ('zero suffix appends -2')
+Error: not implemented
+ ❯ nextRoundId src/storage/session-store.ts:73:9
+     71| 
+     72| export function nextRoundId(_previousRoundId?: string | null): string {
+     73|   throw new Error('not implemented')
+       |         ^
+     74| }
+     75| 
+ ❯ tests/backend/session-store.test.ts:77:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[46/160]⎯
+
+ FAIL  tests/backend/session-store.test.ts > Session store identifier guards, key builders, and round progression (R2, R4, R9) > rejects invalid previousRoundId "" in nextRoundId with validation-error
+ FAIL  tests/backend/session-store.test.ts > Session store identifier guards, key builders, and round progression (R2, R4, R9) > rejects invalid previousRoundId "   " in nextRoundId with validation-error
+ FAIL  tests/backend/session-store.test.ts > Session store identifier guards, key builders, and round progression (R2, R4, R9) > rejects invalid previousRoundId " round-1" in nextRoundId with validation-error
+ FAIL  tests/backend/session-store.test.ts > Session store identifier guards, key builders, and round progression (R2, R4, R9) > rejects invalid previousRoundId "round/1" in nextRoundId with validation-error
+AssertionError: expected Error: not implemented to be an instance of PokerDomainError
+ ❯ expectPokerDomainError tests/helpers/domain-errors.ts:16:18
+     14|   expect(didThrow).toBe(true)
+     15|   expect(caught).toBeInstanceOf(Error)
+     16|   expect(caught).toBeInstanceOf(PokerDomainError)
+       |                  ^
+     17| 
+     18|   const domainError = caught as PokerDomainError
+ ❯ tests/backend/session-store.test.ts:83:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[47/160]⎯
+
+ FAIL  tests/backend/session-store.test.ts > SessionStore round metadata, voter records, 24h TTL, and pagination (R2, R3, R4, R9) > persists and reads RoundMeta with 24-hour TTL and returns null when absent or malformed in KVS
+Error: not implemented
+ ❯ createSessionStore src/storage/session-store.ts:77:9
+     75| 
+     76| export function createSessionStore(_kvsClient?: KvsClientLike): Sessio…
+     77|   throw new Error('not implemented')
+       |         ^
+     78| }
+     79| 
+ ❯ tests/backend/session-store.test.ts:91:19
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[48/160]⎯
+
+ FAIL  tests/backend/session-store.test.ts > SessionStore round metadata, voter records, 24h TTL, and pagination (R2, R3, R4, R9) > persists, normalizes, reads, and deletes isolated VoterRecords with 24-hour TTL
+Error: not implemented
+ ❯ createSessionStore src/storage/session-store.ts:77:9
+     75| 
+     76| export function createSessionStore(_kvsClient?: KvsClientLike): Sessio…
+     77|   throw new Error('not implemented')
+       |         ^
+     78| }
+     79| 
+ ❯ tests/backend/session-store.test.ts:129:19
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[49/160]⎯
+
+ FAIL  tests/backend/session-store.test.ts > SessionStore round metadata, voter records, 24h TTL, and pagination (R2, R3, R4, R9) > enforces exact 24-hour expiry boundary on listVoterRecords (86_399_999 ms active, negative skew active, >= 86_400_000 ms expired)
+Error: not implemented
+ ❯ createSessionStore src/storage/session-store.ts:77:9
+     75| 
+     76| export function createSessionStore(_kvsClient?: KvsClientLike): Sessio…
+     77|   throw new Error('not implemented')
+       |         ^
+     78| }
+     79| 
+ ❯ tests/backend/session-store.test.ts:166:19
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[50/160]⎯
+
+ FAIL  tests/backend/session-store.test.ts > SessionStore round metadata, voter records, 24h TTL, and pagination (R2, R3, R4, R9) > paginates >100 voter records across all nextCursor pages in listVoterRecords and deletes 100% in deleteRoundVotes without mid-scan cursor truncation
+Error: not implemented
+ ❯ createSessionStore src/storage/session-store.ts:77:9
+     75| 
+     76| export function createSessionStore(_kvsClient?: KvsClientLike): Sessio…
+     77|   throw new Error('not implemented')
+       |         ^
+     78| }
+     79| 
+ ❯ tests/backend/session-store.test.ts:221:19
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[51/160]⎯
+
+
+ Test Files  5 failed | 4 passed (9)
+      Tests  159 failed | 418 passed (577)
+   Start at  11:04:25
+   Duration  2.84s (transform 407ms, setup 0ms, collect 816ms, tests 55ms, environment 21.23s, prepare 1.44s)
+
+--- TEST GROUP: integration (.lintel/scripts/test-integration.sh) ---
+Exit code: 3 (status: no-tests, test_files: 0), Duration: 0.02s
+
+--- TEST GROUP: e2e (.lintel/scripts/test-e2e.sh) ---
+Exit code: 3 (status: no-tests, test_files: 0), Duration: 0.02s
+
+--- TEARDOWN (.lintel/scripts/teardown.sh) ---
+Exit code: 0, Duration: 0.01s
+
+--- TESTS ALONE CHECK ---
+Status: PASS (all tracked files untouched, no new test files)
+
+--- WORKTREE CLEAN CHECK ---
+Status: PASS (no modified tracked files or untracked non-ignored files)
+
+--- SUMMARY ---
+setup:          exit 0 (green)
+unit        : red (exit 1)
+integration : no-tests (exit 3)
+e2e         : no-tests (exit 3)
+teardown:       exit 0 (logged)
+tests_clean:    PASS
+worktree_clean: PASS
+OVERALL:        RED
+======================================================================

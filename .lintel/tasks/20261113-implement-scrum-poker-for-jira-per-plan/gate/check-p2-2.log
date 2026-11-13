@@ -1,0 +1,57 @@
+======================================================================
+LINTEL GATE RUN: CHECK
+Mode:             stop-at-first-red
+Candidate commit: 069df7608ce171f662d05ad486a12da4623b691b
+Candidate tree:   9da11864827c12b7189187c2e0bb3ec18c791711
+Worktree:         /private/var/folders/kb/btpbcpw17ng13dr6g3ttzg7w0000gn/T/lintel-gate-gcb588ej
+Started at:       2026-11-13T10:33:02.260526+00:00
+======================================================================
+
+--- SETUP (.lintel/scripts/setup.sh) ---
+Exit code: 0 (green), Duration: 4.39s
+
+--- TEST GROUP: unit (.lintel/scripts/test-unit.sh) ---
+Exit code: 0 (status: green, test_files: 11), Duration: 6.80s
+
+ RUN  v3.2.7 /private/var/folders/kb/btpbcpw17ng13dr6g3ttzg7w0000gn/T/lintel-gate-gcb588ej
+
+ ✓ tests/domain/jira-fields.test.ts (34 tests) 2ms
+ ✓ tests/domain/scoring.test.ts (89 tests) 5ms
+ ✓ tests/domain/session-view.test.ts (102 tests) 7ms
+ ✓ tests/domain/deck.test.ts (192 tests) 8ms
+ ✓ tests/backend/forge-sdk-wiring.test.ts (2 tests) 3ms
+ ✓ tests/backend/session-store.test.ts (37 tests) 5ms
+ ✓ tests/backend/observability-and-manifest.test.ts (38 tests) 6ms
+ ✓ tests/backend/jira-and-realtime.test.ts (11 tests) 7ms
+ ✓ tests/backend/poker-resolvers.test.ts (110 tests) 24ms
+
+ Test Files  9 passed (9)
+      Tests  615 passed (615)
+   Start at  11:33:10
+   Duration  3.05s (transform 478ms, setup 0ms, collect 1.61s, tests 67ms, environment 21.13s, prepare 1.40s)
+
+--- TEST GROUP: integration (.lintel/scripts/test-integration.sh) ---
+Exit code: 3 (status: no-tests, test_files: 0), Duration: 0.02s
+
+--- TEST GROUP: e2e (.lintel/scripts/test-e2e.sh) ---
+Exit code: 3 (status: no-tests, test_files: 0), Duration: 0.02s
+
+--- TEARDOWN (.lintel/scripts/teardown.sh) ---
+Exit code: 0, Duration: 0.01s
+
+--- TESTS ALONE CHECK ---
+Status: PASS (all tracked files untouched, no new test files)
+
+--- WORKTREE CLEAN CHECK ---
+Status: PASS (no modified tracked files or untracked non-ignored files)
+
+--- SUMMARY ---
+setup:          exit 0 (green)
+unit        : green (exit 0)
+integration : no-tests (exit 3)
+e2e         : no-tests (exit 3)
+teardown:       exit 0 (logged)
+tests_clean:    PASS
+worktree_clean: PASS
+OVERALL:        GREEN
+======================================================================

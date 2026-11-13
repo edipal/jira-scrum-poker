@@ -1,0 +1,23 @@
+[
+  {
+    "id": "F1",
+    "severity": "blocker",
+    "status": "fixed",
+    "where": ".lintel/specs/estimation-session.md § Cast, Update, or Toggle Vote (castVote) & § State Transitions",
+    "summary": "castVote postconditions, toggle & ordering semantics, and state transitions now accurately specify that submitting a card matching the caller's active recorded vote toggles (withdraws) the vote—removing the caller's vote record and participant entry (transitioning to 0 votes if sole voter), refreshing updatedAt, publishing 'SESSION_UPDATED', and returning viewerCard: null."
+  },
+  {
+    "id": "F2",
+    "severity": "major",
+    "status": "fixed",
+    "where": ".lintel/specs/estimation-session.md § Scope and Domain Concepts & § Apply Story Points (applyStoryPoints); .lintel/specs/issue-panel.md § Initialize Panel and Synchronize Live Updates",
+    "summary": "Live session event identifiers and payload fields across estimation-session.md and issue-panel.md now match the delivered contract: 'SESSION_UPDATED' carrying { roundId, updatedAt } and 'points-applied' carrying { roundId, score, updatedAt }, while applyStoryPoints returns appliedScore."
+  },
+  {
+    "id": "F3",
+    "severity": "minor",
+    "status": "fixed",
+    "where": ".lintel/specs/estimation-session.md § Withdraw Vote (withdrawVote), § Apply Story Points (applyStoryPoints) & § State Transitions",
+    "summary": "applyStoryPoints failure postconditions ('missing-field', 'forbidden', 'jira-error') and State Transitions consistently include score in { ok: false, reason, score, message }, and withdrawVote documents idempotent no-op return without extending updatedAt or emitting a live notification when idle/expired or when the caller holds no active vote."
+  }
+]

@@ -1,0 +1,16 @@
+[
+  {
+    "id": "QAR-001",
+    "severity": "minor",
+    "status": "open",
+    "where": "tests/panel/copy-score.test.ts:233",
+    "summary": "Move `vi.unstubAllGlobals()` into `afterEach` (alongside `vi.restoreAllMocks()`) so global `navigator` stubs are always restored even if an assertion or call earlier in the test rejects."
+  },
+  {
+    "id": "QAR-002",
+    "severity": "minor",
+    "status": "open",
+    "where": "tests/panel/live-sync-and-compliance.test.tsx:595",
+    "summary": "Consider anchoring the `import`/`export` statement regex (`/(?:import|export)\\s+[\\s\\S]*?from\\s+['\"][^'\"]+['\"]/g`) to line starts after stripping comments so a file-header comment containing the words `import` or `export` cannot span across lines into a subsequent `import type ... from '.../src/...'` declaration."
+  }
+]
