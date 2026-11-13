@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs'
+import { fileURLToPath, URL as NodeURL } from 'node:url'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   createBackendLogger,
@@ -11,7 +12,7 @@ import {
 import { expectPokerDomainError } from '../helpers/domain-errors'
 import { createMemoryLogSink } from '../helpers/forge-doubles'
 
-const REPO_MANIFEST_YAML = readFileSync(new URL('../../manifest.yml', import.meta.url), 'utf8')
+const REPO_MANIFEST_YAML = readFileSync(fileURLToPath(new NodeURL('../../manifest.yml', import.meta.url)), 'utf8')
 
 class CustomClassMetadata {
   readonly issueKey = 'SP-1'
