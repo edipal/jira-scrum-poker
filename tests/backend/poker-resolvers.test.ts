@@ -21,6 +21,7 @@ import {
   createFakeRealtimeDouble,
   createInMemoryKvsDouble,
   createMemoryLogSink,
+  createTtlAwareKvsDouble,
   type FakeJiraRouterConfig,
   jsonJiraResponse,
   makeHostContext,
@@ -2005,5 +2006,199 @@ describe('Monotonic round transitions under gated Jira & KVS interleaving (race 
     })
     expect(finalSession.status).toBe('revealed')
     expect(finalSession.targetScore).toBe(13)
+  })
+
+  it('isolates fresh sessions after partial/lazy KVS TTL eviction (both monotonic round-3 allocation and forced round-1 reuse)', async () => {
+    let nowMs = 10_000_000
+    const ttlKvs = createTtlAwareKvsDouble({ now: () => nowMs })
+    const store = createSessionStore(ttlKvs.client)
+    const jira = createJiraClient({ requestAsUser: createFakeJiraDouble().requestAsUser })
+    const realtimeDouble = createFakeRealtimeDouble()
+    const realtime = createRealtimePublisher({ publish: realtimeDouble.publish })
+    const handlers = createPokerResolverHandlers({
+      store,
+      jira,
+      realtime,
+      now: () => nowMs,
+    })
+
+    // Prior cycle: Alice votes round-1 -> reset to round-2 -> Alice & Bob vote -> reveal & override round-2
+    await handlers.castVote({
+      context: makeHostContext('10001', '712020:alice'),
+      payload: { card: '5' },
+    })
+    nowMs += 1_000
+    const resetSnap = await handlers.resetRound({
+      context: makeHostContext('10001', '712020:alice'),
+    })
+    expect(resetSnap.roundId).toBe('round-2')
+
+    nowMs += 1_000
+    await handlers.castVote({
+      context: makeHostContext('10001', '712020:alice'),
+      payload: { card: '8' },
+    })
+    await handlers.castVote({
+      context: makeHostContext('10001', '712020:bob'),
+      payload: { card: '13' },
+    })
+    nowMs += 1_000
+    await handlers.revealVotes({
+      context: makeHostContext('10001', '712020:bob'),
+    })
+    await handlers.selectOverrideScore({
+      context: makeHostContext('10001', '712020:bob'),
+      payload: { score: 21 },
+    })
+
+    // Subcase A: Lazy KVS sweep evicts ONLY poker:10001:meta while :seq, :closed, :status, :override, and votes remain
+    ttlKvs.evictKey('poker:10001:meta')
+    nowMs += 5_000
+
+    const charlieNewSession = await handlers.castVote({
+      context: makeHostContext('10001', '712020:charlie'),
+      payload: { card: '3' },
+    })
+    expect(charlieNewSession.roundId).toBe('round-3')
+    expect(charlieNewSession.status).toBe('voting')
+    expect(charlieNewSession.viewerCard).toBe('3')
+    expect(charlieNewSession.participants.map((p) => p.accountId)).toEqual(['712020:charlie'])
+
+    // Subcase B: Even if BOTH poker:10001:meta AND poker:10001:seq are evicted (forcing round-1 reuse while
+    // round-1:closed -> round-2, round-2:status = revealed, and a lingering round-1 vote still exist),
+    // session-epoch isolation prevents redirecting to round-2 or deleting the new vote
+    ttlKvs.seedRaw('poker:10001:round-1:vote:712020:ghost', {
+      accountId: '712020:ghost',
+      displayName: 'Ghost Voter',
+      avatarUrl: null,
+      card: '21',
+      votedAt: nowMs,
+    })
+    ttlKvs.evictKey('poker:10001:meta')
+    ttlKvs.evictKey('poker:10001:seq')
+    nowMs += 5_000
+
+    const danaForcedReuse = await handlers.castVote({
+      context: makeHostContext('10001', '712020:dana'),
+      payload: { card: '2' },
+    })
+    expect(danaForcedReuse.roundId).toBe('round-1')
+    expect(danaForcedReuse.status).toBe('voting')
+    expect(danaForcedReuse.viewerCard).toBe('2')
+    expect(danaForcedReuse.participants.map((p) => p.accountId)).toEqual(['712020:dana'])
+  })
+
+  it('keeps voting session alive in TTL-aware KVS when a vote is cast at t0 + 23h59m and expires 24h after the last vote', async () => {
+    const t0 = 50_000_000
+    let nowMs = t0
+    const ttlKvs = createTtlAwareKvsDouble({ now: () => nowMs })
+    const store = createSessionStore(ttlKvs.client)
+    const jira = createJiraClient({ requestAsUser: createFakeJiraDouble().requestAsUser })
+    const realtime = createRealtimePublisher({ publish: createFakeRealtimeDouble().publish })
+    const handlers = createPokerResolverHandlers({
+      store,
+      jira,
+      realtime,
+      now: () => nowMs,
+    })
+
+    // Alice opens round-1 at t0
+    await handlers.castVote({
+      context: makeHostContext('10001', '712020:alice'),
+      payload: { card: '3' },
+    })
+
+    // Bob casts a vote at t0 + 23h59m (refreshing poker:10001:meta 24h TTL)
+    const bobVoteAt = t0 + SESSION_TTL_MS - 60_000
+    nowMs = bobVoteAt
+    const afterBobVote = await handlers.castVote({
+      context: makeHostContext('10001', '712020:bob'),
+      payload: { card: '8' },
+    })
+    expect(afterBobVote.participants).toHaveLength(2)
+
+    // At t0 + 24h01m (past initial meta TTL, 2m after Bob's vote), session stays active with Bob's vote
+    nowMs = t0 + SESSION_TTL_MS + 60_000
+    const activePastInitialTtl = await handlers.getSession({
+      context: makeHostContext('10001', '712020:bob'),
+    })
+    expect(activePastInitialTtl.roundId).toBe('round-1')
+    expect(activePastInitialTtl.status).toBe('voting')
+    expect(activePastInitialTtl.viewerCard).toBe('8')
+    expect(activePastInitialTtl.participants.map((p) => p.accountId)).toEqual(['712020:bob'])
+
+    // At 24h after Bob's last vote, session expires cleanly to idle
+    nowMs = bobVoteAt + SESSION_TTL_MS
+    const expiredAfterLastVote = await handlers.getSession({
+      context: makeHostContext('10001', '712020:bob'),
+    })
+    expect(expiredAfterLastVote.roundId).toBeNull()
+    expect(expiredAfterLastVote.participants).toEqual([])
+  })
+
+  it('uses the authoritative RoundMeta returned by advanceRound in resetRound and applyStoryPoints under concurrent chaining', async () => {
+    const baseKvs = createInMemoryKvsDouble()
+    const store = createSessionStore(baseKvs.client)
+    const jira = createJiraClient({ requestAsUser: createFakeJiraDouble().requestAsUser })
+    const realtimeDouble = createFakeRealtimeDouble()
+    const realtime = createRealtimePublisher({ publish: realtimeDouble.publish })
+    const nowMs = 80_000_000
+    const handlers = createPokerResolverHandlers({
+      store,
+      jira,
+      realtime,
+      now: () => nowMs,
+    })
+
+    // 1. resetRound when round-2 is already closed forward to round-3
+    baseKvs.seedRoundMeta('10001', {
+      roundId: 'round-1',
+      status: 'voting',
+      overrideScore: null,
+      updatedAt: nowMs - 1_000,
+    })
+    baseKvs.seedRaw('poker:10001:round-2:closed', {
+      nextRoundId: 'round-3',
+      closedAt: nowMs,
+    })
+
+    const resetResult = await handlers.resetRound({
+      context: makeHostContext('10001', '712020:alice'),
+    })
+    expect(resetResult.roundId).toBe('round-3')
+    expect(realtimeDouble.events).toEqual([
+      {
+        channel: 'scrum-poker',
+        payload: { type: 'SESSION_UPDATED', roundId: 'round-3', updatedAt: nowMs },
+      },
+    ])
+
+    // 2. applyStoryPoints when round-4 is already closed forward to round-5
+    realtimeDouble.resetEvents()
+    baseKvs.seedRoundMeta('10002', {
+      roundId: 'round-3',
+      status: 'revealed',
+      overrideScore: 8,
+      updatedAt: nowMs - 1_000,
+    })
+    baseKvs.seedRaw('poker:10002:round-4:closed', {
+      nextRoundId: 'round-5',
+      closedAt: nowMs,
+    })
+
+    const applyResult = await handlers.applyStoryPoints({
+      context: makeHostContext('10002', '712020:alice'),
+      payload: { score: 8 },
+    })
+    expect(applyResult.ok).toBe(true)
+    if (applyResult.ok) {
+      expect(applyResult.session.roundId).toBe('round-5')
+    }
+    expect(realtimeDouble.events).toEqual([
+      {
+        channel: 'scrum-poker',
+        payload: { type: 'points-applied', roundId: 'round-5', score: 8, updatedAt: nowMs },
+      },
+    ])
   })
 })

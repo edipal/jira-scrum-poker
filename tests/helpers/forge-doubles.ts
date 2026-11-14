@@ -101,6 +101,7 @@ export interface InMemoryKvsDouble {
   seedRaw(key: string, value: unknown, options?: KvsSetOptions): void
   seedRoundMeta(issueId: string, meta: RoundMeta): void
   seedVoteRecord(issueId: string, roundId: string, vote: VoteRecord): void
+  deleteRaw(key: string): void
   readRaw(key: string): unknown
   hasKey(key: string): boolean
   keysWithPrefix(prefix: string): string[]
@@ -216,6 +217,9 @@ export function createInMemoryKvsDouble(config?: { readonly maxPageSize?: number
         options: structuredClone(KVS_TTL_24H),
       })
     },
+    deleteRaw(key: string): void {
+      store.delete(key)
+    },
     readRaw(key: string): unknown {
       const entry = store.get(key)
       return entry !== undefined ? structuredClone(entry.value) : undefined
@@ -234,6 +238,130 @@ export function createInMemoryKvsDouble(config?: { readonly maxPageSize?: number
     },
     resetOperations(): void {
       operations.length = 0
+    },
+  }
+}
+
+export interface TtlAwareKvsDouble extends InMemoryKvsDouble {
+  evictExpired(nowMs?: number): string[]
+  evictKey(key: string): void
+  getExpiresAt(key: string): number | null
+}
+
+function ttlOptionsToMs(options?: KvsSetOptions): number | null {
+  const ttl = options?.ttl
+  if (ttl === undefined) {
+    return null
+  }
+  switch (ttl.unit) {
+    case 'SECONDS':
+      return ttl.value * 1_000
+    case 'MINUTES':
+      return ttl.value * 60_000
+    case 'HOURS':
+      return ttl.value * 3_600_000
+    case 'DAYS':
+      return ttl.value * 86_400_000
+  }
+}
+
+export function createTtlAwareKvsDouble(config: {
+  readonly now: () => number
+  readonly autoEvictOnRead?: boolean
+  readonly maxPageSize?: number
+}): TtlAwareKvsDouble {
+  const base = createInMemoryKvsDouble({ maxPageSize: config.maxPageSize })
+  const autoEvict = config.autoEvictOnRead ?? true
+  const expiresAtByKey = new Map<string, number | null>()
+
+  function recordWriteTtl(key: string, options?: KvsSetOptions): void {
+    const ttlMs = ttlOptionsToMs(options)
+    expiresAtByKey.set(key, ttlMs !== null ? config.now() + ttlMs : null)
+  }
+
+  function evictKeySilently(key: string): void {
+    expiresAtByKey.delete(key)
+    base.deleteRaw(key)
+  }
+
+  function purgeExpiredSync(atMs: number): string[] {
+    const evicted: string[] = []
+    for (const [key, expiresAt] of Array.from(expiresAtByKey.entries())) {
+      if (expiresAt !== null && atMs >= expiresAt) {
+        evictKeySilently(key)
+        evicted.push(key)
+      }
+    }
+    return evicted
+  }
+
+  const client: KvsClientLike = {
+    async get<T = unknown>(key: string): Promise<T | undefined> {
+      if (autoEvict) {
+        purgeExpiredSync(config.now())
+      }
+      return await base.client.get<T>(key)
+    },
+    async set<T = unknown>(key: string, value: T, options?: KvsSetOptions): Promise<void> {
+      recordWriteTtl(key, options)
+      await base.client.set(key, value, options)
+    },
+    async delete(key: string): Promise<void> {
+      expiresAtByKey.delete(key)
+      await base.client.delete(key)
+    },
+    query(): KvsQueryBuilderLike {
+      const inner = base.client.query()
+      const wrapper: KvsQueryBuilderLike = {
+        where(field, condition) {
+          inner.where(field, condition)
+          return wrapper
+        },
+        limit(count) {
+          inner.limit(count)
+          return wrapper
+        },
+        cursor(afterCursor) {
+          inner.cursor(afterCursor)
+          return wrapper
+        },
+        async getMany<T = unknown>(): Promise<KvsListPage<T>> {
+          if (autoEvict) {
+            purgeExpiredSync(config.now())
+          }
+          return await inner.getMany<T>()
+        },
+      }
+      return wrapper
+    },
+  }
+
+  return {
+    ...base,
+    client,
+    seedRaw(key: string, value: unknown, options: KvsSetOptions = KVS_TTL_24H): void {
+      recordWriteTtl(key, options)
+      base.seedRaw(key, value, options)
+    },
+    seedRoundMeta(issueId: string, meta: RoundMeta): void {
+      recordWriteTtl(`poker:${issueId}:meta`, KVS_TTL_24H)
+      base.seedRoundMeta(issueId, meta)
+    },
+    seedVoteRecord(issueId: string, roundId: string, vote: VoteRecord): void {
+      recordWriteTtl(`poker:${issueId}:${roundId}:vote:${vote.accountId}`, KVS_TTL_24H)
+      base.seedVoteRecord(issueId, roundId, vote)
+    },
+    deleteRaw(key: string): void {
+      evictKeySilently(key)
+    },
+    evictExpired(nowMs = config.now()): string[] {
+      return purgeExpiredSync(nowMs)
+    },
+    evictKey(key: string): void {
+      evictKeySilently(key)
+    },
+    getExpiresAt(key: string): number | null {
+      return expiresAtByKey.get(key) ?? null
     },
   }
 }

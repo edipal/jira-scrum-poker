@@ -31,3 +31,14 @@ jobs:
 
       - name: Run unit & component test suites
         run: ./.lintel/scripts/test-unit.sh
+
+      - name: Run Atlassian Forge manifest & bundle lint
+        env:
+          FORGE_EMAIL: ${{ secrets.FORGE_EMAIL }}
+          FORGE_API_TOKEN: ${{ secrets.FORGE_API_TOKEN }}
+        run: |
+          if [ -n "$FORGE_EMAIL" ] && [ -n "$FORGE_API_TOKEN" ]; then
+            npx --yes @forge/cli@15.1.0 lint
+          else
+            echo "Skipping 'forge lint': FORGE_EMAIL / FORGE_API_TOKEN secrets are not configured for headless Forge CLI auth."
+          fi

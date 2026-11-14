@@ -7,16 +7,19 @@ import {
   buildRoundActivityKey,
   buildRoundClosedKey,
   buildRoundOverrideKey,
+  buildRoundSeqKey,
   buildRoundStatusKey,
+  buildSessionKey,
   buildVoteKey,
   buildVoteKeyPrefix,
   createSessionStore,
   KVS_QUERY_LIMIT,
   KVS_TTL_24H,
+  KVS_TTL_7D,
   nextRoundId,
 } from '../../src/storage/session-store'
 import { expectAsyncPokerDomainError, expectPokerDomainError } from '../helpers/domain-errors'
-import { createInMemoryKvsDouble } from '../helpers/forge-doubles'
+import { createInMemoryKvsDouble, createTtlAwareKvsDouble } from '../helpers/forge-doubles'
 
 describe('Session store identifier guards, key builders, and round progression (R2, R4, R9)', () => {
   it('exposes KVS_TTL_24H = 24 HOURS and KVS_QUERY_LIMIT = 100', () => {
@@ -312,5 +315,109 @@ describe('SessionStore round metadata, voter records, 24h TTL, and pagination (R
       overrideScore: null,
       updatedAt: 5_000,
     })
+  })
+
+  it('prevents lazy KVS TTL eviction of poker:{issueId}:meta from resurrecting stale rounds, tombstones, or votes', async () => {
+    let nowMs = 10_000
+    const ttlKvs = createTtlAwareKvsDouble({ now: () => nowMs })
+    const store = createSessionStore(ttlKvs.client)
+
+    expect(buildSessionKey('10001')).toBe('poker:10001:session')
+    expect(buildRoundSeqKey('10001')).toBe('poker:10001:seq')
+    expect(KVS_TTL_7D).toEqual({ ttl: { value: 7, unit: 'DAYS' } })
+
+    // Old cycle: initialize round-1 -> vote -> advance to round-2 -> vote & reveal round-2
+    expect(await store.allocateRoundId('10001', null)).toBe('round-1')
+    await store.initializeRound('10001', 'round-1', nowMs)
+    await store.setVoterRecord('10001', 'round-1', {
+      accountId: '712020:stale-r1',
+      displayName: 'Stale R1 Voter',
+      avatarUrl: null,
+      card: '8',
+      votedAt: nowMs,
+    })
+
+    nowMs = 11_000
+    await store.advanceRound('10001', 'round-1', 'round-2', nowMs)
+    await store.setVoterRecord('10001', 'round-2', {
+      accountId: '712020:stale-r2',
+      displayName: 'Stale R2 Voter',
+      avatarUrl: null,
+      card: '13',
+      votedAt: nowMs,
+    })
+    nowMs = 12_000
+    await store.markRoundRevealed('10001', 'round-2', nowMs)
+    await store.setRoundOverride('10001', 'round-2', 21, 12_500)
+
+    expect(ttlKvs.getSetOptions('poker:10001:seq')).toEqual(KVS_TTL_7D)
+
+    // Simulate out-of-order lazy KVS sweep: delete ONLY poker:10001:meta while :closed, :status, :override, and votes remain
+    ttlKvs.evictKey('poker:10001:meta')
+    expect(await store.getRoundMeta('10001')).toBeNull()
+
+    // 1. allocateRoundId advances monotonically past round-2 via poker:10001:seq
+    expect(await store.allocateRoundId('10001', null)).toBe('round-3')
+
+    // 2. Even if round-1 is explicitly re-initialized (or :seq was also evicted) with lingering tombstones + un-epoched legacy status,
+    //    session-epoch isolation + target-round sweep keep the new round-1 cleanly in voting with zero stale votes
+    ttlKvs.seedRaw('poker:10001:round-1:status', { status: 'revealed', updatedAt: 12_000 })
+    nowMs = 20_000
+    const freshRound = await store.initializeRound('10001', 'round-1', nowMs)
+    expect(freshRound).toEqual({
+      roundId: 'round-1',
+      status: 'voting',
+      overrideScore: null,
+      updatedAt: 20_000,
+    })
+    expect(await store.getRoundMeta('10001')).toEqual({
+      roundId: 'round-1',
+      status: 'voting',
+      overrideScore: null,
+      updatedAt: 20_000,
+    })
+    expect(await store.listVoterRecords('10001', 'round-1', nowMs)).toEqual([])
+    expect(await store.listVoterRecords('10001', 'round-2', nowMs)).toEqual([])
+  })
+
+  it('refreshes poker:{issueId}:meta and :session 24h KVS TTL on touchRoundActivity so late votes keep the session alive', async () => {
+    const t0 = 1_000_000
+    let nowMs = t0
+    const ttlKvs = createTtlAwareKvsDouble({ now: () => nowMs })
+    const store = createSessionStore(ttlKvs.client)
+
+    await store.initializeRound('10001', 'round-1', t0)
+    expect(ttlKvs.getExpiresAt('poker:10001:meta')).toBe(t0 + SESSION_TTL_MS)
+    expect(ttlKvs.getExpiresAt('poker:10001:session')).toBe(t0 + SESSION_TTL_MS)
+
+    // Cast/update vote at t0 + 23h59m
+    const voteAtMs = t0 + SESSION_TTL_MS - 60_000
+    nowMs = voteAtMs
+    await store.setVoterRecord('10001', 'round-1', {
+      accountId: '712020:late-voter',
+      displayName: 'Late Voter',
+      avatarUrl: null,
+      card: '5',
+      votedAt: voteAtMs,
+    })
+    await store.touchRoundActivity('10001', 'round-1', voteAtMs)
+
+    expect(ttlKvs.getExpiresAt('poker:10001:meta')).toBe(voteAtMs + SESSION_TTL_MS)
+    expect(ttlKvs.getExpiresAt('poker:10001:session')).toBe(voteAtMs + SESSION_TTL_MS)
+
+    // At t0 + 24h01m (2 minutes after the vote, past initial meta TTL), round and vote remain active in TTL-aware KVS
+    nowMs = t0 + SESSION_TTL_MS + 60_000
+    expect(await store.getRoundMeta('10001')).toEqual({
+      roundId: 'round-1',
+      status: 'voting',
+      overrideScore: null,
+      updatedAt: voteAtMs,
+    })
+    expect(await store.listVoterRecords('10001', 'round-1', nowMs)).toHaveLength(1)
+
+    // At 24h after the last vote, KVS TTL evicts meta/session/activity/vote
+    nowMs = voteAtMs + SESSION_TTL_MS
+    expect(await store.getRoundMeta('10001')).toBeNull()
+    expect(await store.listVoterRecords('10001', 'round-1', nowMs)).toEqual([])
   })
 })

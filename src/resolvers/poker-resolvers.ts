@@ -11,7 +11,7 @@ import {
 import { type ApplyStoryPointsFailureReason, type JiraClient, createJiraClient } from '../jira/jira-client'
 import { type BackendLogger, createBackendLogger } from '../observability/logger'
 import { type RealtimePublisher, createRealtimePublisher } from '../realtime/publisher'
-import { type SessionStore, assertSafeIdentifier, createSessionStore, nextRoundId } from '../storage/session-store'
+import { type SessionStore, assertSafeIdentifier, createSessionStore } from '../storage/session-store'
 
 export const RESOLVER_KEYS = {
   getSession: 'getSession',
@@ -191,7 +191,7 @@ export function createPokerResolverHandlers(deps?: PokerBackendDeps): PokerResol
       }
 
       if (!isActiveRound) {
-        const expectedRoundId = nextRoundId(meta?.roundId)
+        const expectedRoundId = await store.allocateRoundId(issueId, meta?.roundId ?? null)
         const [profile, storyPointsField] = await Promise.all([
           jira.getCurrentUserProfile(),
           jira.getEditableStoryPointsField(issueId),
@@ -207,6 +207,9 @@ export function createPokerResolverHandlers(deps?: PokerBackendDeps): PokerResol
 
         const currentMeta = await store.getRoundMeta(issueId)
         const isCurrentActive = currentMeta !== null && !isRoundExpired(currentMeta.updatedAt, nowMs)
+
+        let settledMeta: RoundMeta | null = null
+        let wroteVoteToExpectedRound = false
 
         if (isCurrentActive) {
           if (currentMeta.roundId !== expectedRoundId || currentMeta.status === 'revealed') {
@@ -224,21 +227,31 @@ export function createPokerResolverHandlers(deps?: PokerBackendDeps): PokerResol
             store.setVoterRecord(issueId, expectedRoundId, voteRecord),
             store.touchRoundActivity(issueId, expectedRoundId, nowMs),
           ])
+          wroteVoteToExpectedRound = true
         } else if (meta !== null) {
-          await store.advanceRound(issueId, meta.roundId, expectedRoundId, nowMs)
-          await Promise.all([
-            store.deleteRoundVotes(issueId, meta.roundId),
-            store.setVoterRecord(issueId, expectedRoundId, voteRecord),
-          ])
+          const advancedMeta = await store.advanceRound(issueId, meta.roundId, expectedRoundId, nowMs)
+          settledMeta = advancedMeta
+          if (advancedMeta.roundId === expectedRoundId && advancedMeta.status === 'voting') {
+            await Promise.all([
+              store.deleteRoundVotes(issueId, meta.roundId),
+              store.setVoterRecord(issueId, expectedRoundId, voteRecord),
+            ])
+            wroteVoteToExpectedRound = true
+          } else {
+            await store.deleteRoundVotes(issueId, meta.roundId)
+          }
         } else {
-          await Promise.all([
-            store.initializeRound(issueId, expectedRoundId, nowMs),
-            store.setVoterRecord(issueId, expectedRoundId, voteRecord),
-          ])
+          const initializedMeta = await store.initializeRound(issueId, expectedRoundId, nowMs)
+          settledMeta = initializedMeta
+          if (initializedMeta.roundId === expectedRoundId && initializedMeta.status === 'voting') {
+            await store.setVoterRecord(issueId, expectedRoundId, voteRecord)
+            wroteVoteToExpectedRound = true
+          }
         }
 
         const finalMeta =
-          (await store.getRoundMeta(issueId)) ??
+          (wroteVoteToExpectedRound ? await store.getRoundMeta(issueId) : settledMeta) ??
+          settledMeta ??
           ({
             roundId: expectedRoundId,
             status: 'voting',
@@ -246,9 +259,9 @@ export function createPokerResolverHandlers(deps?: PokerBackendDeps): PokerResol
             updatedAt: nowMs,
           } satisfies RoundMeta)
 
-        if (finalMeta.roundId !== expectedRoundId) {
+        if (wroteVoteToExpectedRound && finalMeta.roundId !== expectedRoundId) {
           await store.deleteVoterRecord(issueId, expectedRoundId, accountId)
-        } else {
+        } else if (finalMeta.roundId === expectedRoundId) {
           await realtime.publishSessionUpdated(expectedRoundId, nowMs)
         }
 
@@ -521,27 +534,40 @@ export function createPokerResolverHandlers(deps?: PokerBackendDeps): PokerResol
     },
 
     async resetRound(req: ForgeResolverRequest): Promise<SessionSnapshot> {
-      const { issueId } = extractAuthenticatedContext(req?.context)
+      const { issueId, accountId } = extractAuthenticatedContext(req?.context)
       const nowMs = getNowMs(now)
 
       const meta = await store.getRoundMeta(issueId)
-      const newRoundId = nextRoundId(meta?.roundId)
+      const newRoundId = await store.allocateRoundId(issueId, meta?.roundId ?? null)
 
-      await store.advanceRound(issueId, meta?.roundId ?? null, newRoundId, nowMs)
+      const advancedMeta = await store.advanceRound(issueId, meta?.roundId ?? null, newRoundId, nowMs)
       if (meta !== null) {
         await store.deleteRoundVotes(issueId, meta.roundId)
       }
 
-      const [, storyPointsField] = await Promise.all([
-        realtime.publishSessionUpdated(newRoundId, nowMs),
+      const [, storyPointsField, activeVotes] = await Promise.all([
+        realtime.publishSessionUpdated(advancedMeta.roundId, nowMs),
         jira.getEditableStoryPointsField(issueId),
+        advancedMeta.roundId === newRoundId && advancedMeta.status === 'voting'
+          ? Promise.resolve<VoteRecord[]>([])
+          : store.listVoterRecords(issueId, advancedMeta.roundId, nowMs),
       ])
 
-      return createIdleSessionSnapshot(storyPointsField, newRoundId)
+      if (advancedMeta.roundId === newRoundId && advancedMeta.status === 'voting' && activeVotes.length === 0) {
+        return createIdleSessionSnapshot(storyPointsField, advancedMeta.roundId)
+      }
+
+      return projectSessionSnapshot({
+        meta: advancedMeta,
+        votes: activeVotes,
+        viewerAccountId: accountId,
+        storyPointsField,
+        nowMs,
+      })
     },
 
     async applyStoryPoints(req: ForgeResolverRequest): Promise<ApplyStoryPointsResult> {
-      const { issueId } = extractAuthenticatedContext(req?.context)
+      const { issueId, accountId } = extractAuthenticatedContext(req?.context)
       const payload = assertPlainPayload(req.payload)
       const score = validateFibonacciScore(payload.score)
       const nowMs = getNowMs(now)
@@ -561,18 +587,25 @@ export function createPokerResolverHandlers(deps?: PokerBackendDeps): PokerResol
         }
       }
 
-      const newRoundId = nextRoundId(meta.roundId)
-      await store.advanceRound(issueId, meta.roundId, newRoundId, nowMs)
+      const newRoundId = await store.allocateRoundId(issueId, meta.roundId)
+      const advancedMeta = await store.advanceRound(issueId, meta.roundId, newRoundId, nowMs)
       await store.deleteRoundVotes(issueId, meta.roundId)
-      await realtime.publishPointsApplied(newRoundId, score, nowMs)
+      await realtime.publishPointsApplied(advancedMeta.roundId, score, nowMs)
 
-      const session = createIdleSessionSnapshot(
-        {
-          fieldId: outcome.fieldId,
-          fieldName: outcome.fieldName,
-        },
-        newRoundId,
-      )
+      const storyPointsField = {
+        fieldId: outcome.fieldId,
+        fieldName: outcome.fieldName,
+      }
+      const session =
+        advancedMeta.roundId === newRoundId && advancedMeta.status === 'voting'
+          ? createIdleSessionSnapshot(storyPointsField, advancedMeta.roundId)
+          : projectSessionSnapshot({
+              meta: advancedMeta,
+              votes: await store.listVoterRecords(issueId, advancedMeta.roundId, nowMs),
+              viewerAccountId: accountId,
+              storyPointsField,
+              nowMs,
+            })
 
       return {
         ok: true,

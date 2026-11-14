@@ -13,7 +13,7 @@ flowchart LR
     res["Resolver Layer (src/resolvers/ · src/index.ts)<br/>@forge/resolver"]
     dom["Pure Domain Layer (src/domain/)<br/>Fibonacci deck · avg/snap math · TTL check · editmeta matcher"]
     obs["Observability & Compliance (src/observability/)<br/>Structured redacting logger · manifest validator"]
-    kvs["Session Store (src/storage/ · @forge/kvs)<br/>poker:{issueId}:meta + per-round status/override/activity/closed<br/>poker:{issueId}:{roundId}:vote:{accountId}"]
+    kvs["Session Store (src/storage/ · @forge/kvs)<br/>poker:{issueId}:meta · :session · :seq<br/>per-round status/override/activity/closed + vote keys"]
     rt["Realtime Publisher (src/realtime/ · @forge/realtime)<br/>issue-scoped channel 'scrum-poker'"]
     jira["Jira Client (src/jira/ · @forge/api asUser)<br/>GET editmeta · GET myself · PUT issue"]
   end
@@ -34,10 +34,11 @@ flowchart LR
 
 ## Patterns
 
-- **Per-Voter & Monotonic Per-Round KVS Key Isolation ([D-09](decisions.md), [D-10](decisions.md), [D-12](decisions.md)):**
-  - Base round pointer lives in `poker:${issueId}:meta`, supplemented by monotonic per-round keys `poker:${issueId}:${roundId}:status` (write-once `'revealed'`), `poker:${issueId}:${roundId}:override`, `poker:${issueId}:${roundId}:activity`, and `poker:${issueId}:${roundId}:closed` (forward pointer written on reset/apply/expiry rollover).
-  - Each voter's pick lives in its own key `poker:${issueId}:${roundId}:vote:${accountId}` (`{ accountId, displayName, avatarUrl, card, votedAt }`), queried via `WhereConditions.beginsWith("poker:${issueId}:${roundId}:vote:")` with `.limit(100)` and `nextCursor` loop pagination.
-  - Vote casts, updates, and withdrawals only write the voter's key and `poker:${issueId}:${roundId}:activity` (reusing the voter's cached `displayName`/`avatarUrl` on active vote updates), so an in-flight vote can never overwrite `status: 'revealed'`, clear `overrideScore`, or revert a concurrent `resetRound` / `applyStoryPoints`.
+- **Per-Voter, Session-Epoched & Monotonic Per-Round KVS Key Isolation ([D-09](decisions.md), [D-10](decisions.md), [D-12](decisions.md)):**
+  - Base round pointer lives in `poker:${issueId}:meta`, paired with session-epoch metadata `poker:${issueId}:session` (`24 HOURS` TTL), monotonic round/epoch sequence state `poker:${issueId}:seq` (`7 DAYS` TTL so round IDs never restart at `round-1` across lazy KVS sweeps), and monotonic per-round keys `poker:${issueId}:${roundId}:status` (write-once `'revealed'`), `poker:${issueId}:${roundId}:override`, `poker:${issueId}:${roundId}:activity`, and `poker:${issueId}:${roundId}:closed` (forward pointer written on reset/apply/expiry rollover).
+  - Each voter's pick lives in its own key `poker:${issueId}:${roundId}:vote:${accountId}` (`{ accountId, displayName, avatarUrl, card, votedAt, sessionEpoch }`), queried via `WhereConditions.beginsWith("poker:${issueId}:${roundId}:vote:")` with `.limit(100)` and `nextCursor` loop pagination.
+  - Per-round tombstones and voter records are scoped to the active `sessionEpoch` (and stale target-round keys are swept when a new session initializes), preventing lazy KVS TTL eviction from ever resurrecting prior rounds or votes even if a round identifier is reused.
+  - Vote casts, updates, and withdrawals write the voter's key and `poker:${issueId}:${roundId}:activity` (reusing the voter's cached `displayName`/`avatarUrl` on active vote updates) and refresh `poker:${issueId}:meta` / `poker:${issueId}:session` 24-hour retention from the resolved monotonic state so active voting sessions never lose their anchor while an in-flight vote still cannot revert `status: 'revealed'`, clear `overrideScore`, or undo a concurrent `resetRound` / `applyStoryPoints`.
 - **Dual 24-Hour Expiry ([D-08](decisions.md)):**
   - Every `kvs.set` passes `{ ttl: { value: 24, unit: 'HOURS' } }` so Forge reclaims storage automatically.
   - Because Forge KVS sweeps expired entries lazily (up to 48 hours), read paths enforce `nowMs - updatedAt < 86_400_000` ms (`isRoundExpired` triggers at `>= 86_400_000` ms while tolerating minor negative clock skew) without extending `updatedAt` on expired reads.
