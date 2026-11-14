@@ -98,10 +98,20 @@ describe('ScrumPokerApp initialization, theme sync, bootstrap, and voting contro
     expect(() => bootstrapIssuePanel(document.createTextNode('x') as unknown as HTMLElement)).toThrow(TypeError)
 
     const mock = createMockPokerClient(makeIdleVotingSnapshot())
+    const callOrder: string[] = []
+    mock.enableTheme.mockImplementation(async () => {
+      callOrder.push('enableTheme')
+    })
+    mock.getSession.mockImplementation(async () => {
+      callOrder.push('getSession')
+      return makeIdleVotingSnapshot()
+    })
+
     const container = document.createElement('div')
     document.body.appendChild(container)
 
     const root = bootstrapIssuePanel(container, { client: mock.client })
+    expect(callOrder[0]).toBe('enableTheme')
 
     await waitFor(() => {
       expect(within(container).getByTestId('empty-voters-prompt')).toHaveTextContent('Pick a card to start voting')

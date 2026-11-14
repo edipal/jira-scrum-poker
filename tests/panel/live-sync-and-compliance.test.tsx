@@ -209,6 +209,23 @@ describe('Live multi-user synchronization, race guards, refresh deduplication, a
     })
     expect(screen.getByTestId('empty-voters-prompt')).toHaveTextContent('Pick a card to start voting')
     expect(bridge.refreshCalls).toBe(1)
+
+    // Returning tab to foreground (visibilitychange -> 'visible') re-syncs session if a realtime event was dropped
+    currentSession = makeVotingSnapshot({
+      roundId: 'round-2',
+      viewerCard: null,
+      participants: [makeParticipant('acc-charlie', 'Charlie', null)],
+    })
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      value: 'visible',
+    })
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+    await waitFor(() => {
+      expect(screen.getByTestId('participant-chip')).toHaveTextContent('Charlie ✓')
+    })
   })
 
   it('ignores stale out-of-order background getSession responses superseded by newer user mutations or newer background fetches', async () => {

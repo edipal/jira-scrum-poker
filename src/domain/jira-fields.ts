@@ -2,10 +2,12 @@ import type { StoryPointsFieldInfo } from './types'
 
 const RESERVED_FIELD_KEYS: ReadonlySet<string> = new Set(['__proto__', 'constructor', 'prototype'])
 
+const JSW_STORY_POINTS_CUSTOM_SCHEMA = 'com.pyxis.greenhopper.jira:jsw-story-points'
+
 interface RankedFieldCandidate {
-  readonly tier: 0 | 1
+  readonly tier: 0 | 1 | 2
   readonly fieldId: string
-  readonly fieldName: 'Story Points' | 'Story point estimate'
+  readonly fieldName: string
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -52,13 +54,8 @@ export function detectStoryPointsField(editMeta: unknown): StoryPointsFieldInfo 
       continue
     }
 
-    const rawName = Object.hasOwn(fieldDef, 'name') ? fieldDef.name : undefined
-    const nameMatch = matchFieldNameTier(rawName)
-    if (nameMatch === null) {
-      continue
-    }
-
     const rawSchema = Object.hasOwn(fieldDef, 'schema') ? fieldDef.schema : undefined
+    let hasJswStoryPointsSchema = false
     if (rawSchema !== undefined && rawSchema !== null) {
       if (!isPlainObject(rawSchema)) {
         continue
@@ -67,6 +64,8 @@ export function detectStoryPointsField(editMeta: unknown): StoryPointsFieldInfo 
       if (rawType !== undefined && rawType !== null && rawType !== 'number') {
         continue
       }
+      const rawCustom = Object.hasOwn(rawSchema, 'custom') ? rawSchema.custom : undefined
+      hasJswStoryPointsSchema = rawCustom === JSW_STORY_POINTS_CUSTOM_SCHEMA
     }
 
     const rawOperations = Object.hasOwn(fieldDef, 'operations') ? fieldDef.operations : undefined
@@ -76,11 +75,25 @@ export function detectStoryPointsField(editMeta: unknown): StoryPointsFieldInfo 
       }
     }
 
-    candidates.push({
-      tier: nameMatch.tier,
-      fieldId,
-      fieldName: nameMatch.fieldName,
-    })
+    const rawName = Object.hasOwn(fieldDef, 'name') ? fieldDef.name : undefined
+    const nameMatch = matchFieldNameTier(rawName)
+    if (nameMatch !== null) {
+      candidates.push({
+        tier: nameMatch.tier,
+        fieldId,
+        fieldName: nameMatch.fieldName,
+      })
+      continue
+    }
+
+    if (hasJswStoryPointsSchema) {
+      const fallbackName = typeof rawName === 'string' && rawName.trim().length > 0 ? rawName.trim() : 'Story Points'
+      candidates.push({
+        tier: 2,
+        fieldId,
+        fieldName: fallbackName,
+      })
+    }
   }
 
   if (candidates.length === 0) {

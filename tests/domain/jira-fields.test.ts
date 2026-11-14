@@ -190,6 +190,58 @@ describe('detectStoryPointsField precedence and deterministic tie-breaking (R10)
       fieldName: 'Story point estimate',
     })
   })
+
+  it('matches localized or renamed Jira Software Story Points fields via jsw-story-points custom schema as tier-2 fallback', () => {
+    const localizedEditMeta = {
+      fields: {
+        customfield_10030: {
+          name: "Points d'histoire",
+          schema: {
+            type: 'number',
+            custom: 'com.pyxis.greenhopper.jira:jsw-story-points',
+          },
+          operations: ['set'],
+        },
+      },
+    }
+    expect(detectStoryPointsField(localizedEditMeta)).toEqual({
+      fieldId: 'customfield_10030',
+      fieldName: "Points d'histoire",
+    })
+
+    // Exact English tier-0 and tier-1 names still take precedence over tier-2 schema fallback
+    const multiTierEditMeta = {
+      fields: {
+        customfield_10005: {
+          name: 'Renamed Points',
+          schema: { type: 'number', custom: 'com.pyxis.greenhopper.jira:jsw-story-points' },
+          operations: ['set'],
+        },
+        customfield_10099: {
+          name: 'Story point estimate',
+          schema: { type: 'number' },
+          operations: ['set'],
+        },
+      },
+    }
+    expect(detectStoryPointsField(multiTierEditMeta)).toEqual({
+      fieldId: 'customfield_10099',
+      fieldName: 'Story point estimate',
+    })
+
+    // Read-only or non-numeric jsw-story-points fields remain disqualified
+    expect(
+      detectStoryPointsField({
+        fields: {
+          customfield_10030: {
+            name: "Points d'histoire",
+            schema: { type: 'number', custom: 'com.pyxis.greenhopper.jira:jsw-story-points' },
+            operations: [],
+          },
+        },
+      }),
+    ).toBeNull()
+  })
 })
 
 describe('detectStoryPointsField non-matching, read-only, and malformed payload resilience (R10)', () => {

@@ -2,7 +2,7 @@
 
 ## Scope and Domain Concepts
 
-Defines the observable user-interface behaviour of the `Scrum Poker` per-issue estimation panel (`jira:issuePanel`), including host Light/Dark theme synchronization, live multi-user event synchronization, accessible card toggle controls across `'voting'` and `'revealed'` states, post-reveal consensus score overrides, Story Points write-back confirmation with parent issue refresh, and missing-field warning with clipboard copy fallback `[20261113-implement-scrum-poker-for-jira-per-plan]`.
+Defines the observable user-interface behaviour of the `Scrum Poker` per-issue estimation panel (`jira:issueContext` right-hand sidebar), including host Light/Dark theme synchronization before mount, live multi-user event synchronization with tab-focus resync, accessible card toggle controls across `'voting'` and `'revealed'` states, post-reveal consensus score overrides, Story Points write-back confirmation with parent issue refresh, and missing-field warning with clipboard copy fallback `[20261113-implement-scrum-poker-for-jira-per-plan]`.
 
 Numeric scoring and field-matching rules are governed by [estimation-rules.md](estimation-rules.md). Session persistence, authorization, and host platform write-back semantics are governed by [estimation-session.md](estimation-session.md).
 
@@ -29,7 +29,7 @@ Numeric scoring and field-matching rules are governed by [estimation-rules.md](e
 Bootstraps theme sync, loads the caller's initial session snapshot, and maintains live multi-user synchronization.
 - **Preconditions:** Authenticated viewer opens the `Scrum Poker` panel on an issue.
 - **Postconditions:**
-  - Enables host theme synchronization (`Light` / `Dark`), fetches the initial caller-scoped session via `getSession`, and subscribes to live session events for the issue.
+  - Enables host theme synchronization (`Light` / `Dark`) before mounting, fetches the initial caller-scoped session via `getSession`, subscribes to live session events for the issue, and refreshes session state in the background when the browser tab returns to the visible foreground (`visibilitychange`).
   - On receiving a peer `'SESSION_UPDATED'` mutation event (vote cast/updated/withdrawn, votes revealed, `targetScore` overridden, or round reset), automatically fetches and renders the viewer's updated caller-scoped session snapshot.
   - On receiving a peer `'points-applied'` event (`{ roundId, score, updatedAt }`), refreshes to the cleared idle session state and invokes host issue view refresh.
   - On panel unmount, unsubscribes cleanly so unmounted views ignore subsequent events.

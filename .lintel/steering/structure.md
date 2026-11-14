@@ -3,8 +3,9 @@
 ## Directories and Modules
 
 ```text
-scrum-poker/
-├── manifest.yml                 # Atlassian Forge manifest (jira:issuePanel, resources, 4 scopes)
+jira-scrum-poker/
+├── .github/workflows/ci.yml     # GitHub Actions CI pipeline (build, lint, typecheck, unit suite)
+├── manifest.yml                 # Atlassian Forge manifest (jira:issueContext, resources, 4 scopes)
 ├── PLAN.md                      # Phased feature delivery roadmap for Lintel tasks
 ├── package.json                 # Dependencies and lint/format/typecheck/build/test scripts
 ├── tsconfig.json                # Strict TypeScript configuration across backend, UI, and tests
@@ -30,7 +31,7 @@ scrum-poker/
 │       └── poker-resolvers.ts   # Authenticated host context guard and 7 RPC resolver handlers
 ├── static/
 │   ├── assets/
-│   │   └── icon.svg             # Local SVG icon referenced by jira:issuePanel in manifest.yml
+│   │   └── icon.svg             # Local SVG icon referenced by jira:issueContext in manifest.yml
 │   └── panel/                   # Forge Custom UI frontend (browser iframe; no @forge/kvs or @forge/api)
 │       ├── index.html           # Custom UI HTML entry point
 │       ├── src/                 # React 19 components, CSS tokens, bridge client, and clipboard fallback

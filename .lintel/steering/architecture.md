@@ -13,7 +13,7 @@ flowchart LR
     res["Resolver Layer (src/resolvers/ · src/index.ts)<br/>@forge/resolver"]
     dom["Pure Domain Layer (src/domain/)<br/>Fibonacci deck · avg/snap math · TTL check · editmeta matcher"]
     obs["Observability & Compliance (src/observability/)<br/>Structured redacting logger · manifest validator"]
-    kvs["Session Store (src/storage/ · @forge/kvs)<br/>poker:{issueId}:meta<br/>poker:{issueId}:{roundId}:vote:{accountId}"]
+    kvs["Session Store (src/storage/ · @forge/kvs)<br/>poker:{issueId}:meta + per-round status/override/activity/closed<br/>poker:{issueId}:{roundId}:vote:{accountId}"]
     rt["Realtime Publisher (src/realtime/ · @forge/realtime)<br/>issue-scoped channel 'scrum-poker'"]
     jira["Jira Client (src/jira/ · @forge/api asUser)<br/>GET editmeta · GET myself · PUT issue"]
   end
@@ -28,16 +28,16 @@ flowchart LR
   jira --> obs
 ```
 
-- **Presentation (`static/panel/src/`):** React 19 Custom UI single-page bundle built with Vite (`base: './'`) into `static/panel/build/`. Syncs Jira Light/Dark mode via `view.theme.enable()`, invokes backend resolvers (`getSession`, `castVote`, `withdrawVote`, `revealVotes`, `selectOverrideScore`, `resetRound`, `applyStoryPoints`) via a lazy-loaded `@forge/bridge` client (`bridge/poker-client.ts`), subscribes to live issue-scoped updates via `realtime.subscribe('scrum-poker', ...)`, deduplicates parent issue refreshes (`view.refresh()`) across self/peer `'points-applied'` events, and executes two-tier clipboard copy (`navigator.clipboard.writeText` with off-screen `<textarea>` + `document.execCommand('copy')` fallback in `clipboard/copy-score.ts`) when Story Points is unavailable on the issue screen.
+- **Presentation (`static/panel/src/`):** React 19 Custom UI single-page bundle built with Vite (`base: './'`) into `static/panel/build/` and rendered in Jira's right-hand `jira:issueContext` sidebar ([D-11](decisions.md)). Enables Jira Light/Dark mode via `view.theme.enable()` prior to mounting, invokes backend resolvers (`getSession`, `castVote`, `withdrawVote`, `revealVotes`, `selectOverrideScore`, `resetRound`, `applyStoryPoints`) via a lazy-loaded `@forge/bridge` client (`bridge/poker-client.ts`), subscribes to live issue-scoped updates via `realtime.subscribe('scrum-poker', ...)` with foreground tab visibility resync, deduplicates parent issue refreshes (`view.refresh()`) across self/peer `'points-applied'` events, and executes two-tier clipboard copy (`navigator.clipboard.writeText` with off-screen `<textarea>` + `document.execCommand('copy')` fallback in `clipboard/copy-score.ts`) when Story Points is unavailable on the issue screen.
 - **Domain (`src/domain/`):** Stateless, framework-free TypeScript modules for deck and numeric score validation (`types.ts`, `deck.ts`), unrounded numeric mean and nearest-Fibonacci snapping with upward midpoint tie-breaking plus half-up display formatting (`scoring.ts`), 24-hour expiration checks and caller-scoped session redaction/projection (`session-view.ts`), and Jira `editmeta` Story Points field matching (`jira-fields.ts`).
 - **Data, Integration & Observability (`src/resolvers/`, `src/storage/`, `src/jira/`, `src/realtime/`, `src/observability/`, `src/index.ts`):** Thin `@forge/resolver` handlers (`poker-resolvers.ts`) extracting authenticated host context (`context.extension.issue.id`, `context.accountId`) before orchestrating `@forge/kvs` storage (`session-store.ts`), `@forge/realtime` event publishing (`publisher.ts`), `@forge/api` (`api.asUser().requestJira(...)`) Jira REST v3 calls (`jira-client.ts`), and JSON structured logging with automatic card/credential/PII redaction (`logger.ts`).
 
 ## Patterns
 
-- **Per-Voter KVS Key Isolation ([D-09](decisions.md), [D-10](decisions.md)):**
-  - Round state lives in `poker:${issueId}:meta` (`{ roundId, status: 'voting' | 'revealed', overrideScore, updatedAt }`).
+- **Per-Voter & Monotonic Per-Round KVS Key Isolation ([D-09](decisions.md), [D-10](decisions.md), [D-12](decisions.md)):**
+  - Base round pointer lives in `poker:${issueId}:meta`, supplemented by monotonic per-round keys `poker:${issueId}:${roundId}:status` (write-once `'revealed'`), `poker:${issueId}:${roundId}:override`, `poker:${issueId}:${roundId}:activity`, and `poker:${issueId}:${roundId}:closed` (forward pointer written on reset/apply/expiry rollover).
   - Each voter's pick lives in its own key `poker:${issueId}:${roundId}:vote:${accountId}` (`{ accountId, displayName, avatarUrl, card, votedAt }`), queried via `WhereConditions.beginsWith("poker:${issueId}:${roundId}:vote:")` with `.limit(100)` and `nextCursor` loop pagination.
-  - Concurrent card clicks by multiple teammates never write to the same key, eliminating read-modify-write lost updates. Resetting or clearing a round advances `roundId` deterministically (`nextRoundId`: `'round-1' -> 'round-2'`) and sweeps prior-round vote keys.
+  - Vote casts, updates, and withdrawals only write the voter's key and `poker:${issueId}:${roundId}:activity` (reusing the voter's cached `displayName`/`avatarUrl` on active vote updates), so an in-flight vote can never overwrite `status: 'revealed'`, clear `overrideScore`, or revert a concurrent `resetRound` / `applyStoryPoints`.
 - **Dual 24-Hour Expiry ([D-08](decisions.md)):**
   - Every `kvs.set` passes `{ ttl: { value: 24, unit: 'HOURS' } }` so Forge reclaims storage automatically.
   - Because Forge KVS sweeps expired entries lazily (up to 48 hours), read paths enforce `nowMs - updatedAt < 86_400_000` ms (`isRoundExpired` triggers at `>= 86_400_000` ms while tolerating minor negative clock skew) without extending `updatedAt` on expired reads.

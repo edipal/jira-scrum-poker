@@ -20,7 +20,7 @@ This repository uses the **Lintel** multi-agent engineering harness (`PO -> Arch
 - **Steering Documents:**
   - [`product.md`](.lintel/steering/product.md) — product scope and UX rules
   - [`architecture.md`](.lintel/steering/architecture.md) — Custom UI + Forge resolver boundaries, KVS layout, and realtime sync
-  - [`decisions.md`](.lintel/steering/decisions.md) — recorded product & architectural decisions (`D-01`..`D-09`)
+  - [`decisions.md`](.lintel/steering/decisions.md) — recorded product & architectural decisions (`D-01`..`D-12`)
   - [`tech.md`](.lintel/steering/tech.md), [`structure.md`](.lintel/steering/structure.md), [`conventions.md`](.lintel/steering/conventions.md), [`testing.md`](.lintel/steering/testing.md)
 
 ## Local Verification

@@ -109,6 +109,42 @@ describe('Realtime publisher channel events, redaction, and best-effort resilien
     expect(serializedLogs).not.toContain('leaked-secret-token')
     expect(serializedLogs).not.toContain('user@company.io')
   })
+
+  it('logs realtime.publish_failed with PII redaction when @forge/realtime publish resolves with non-empty errors', async () => {
+    const logDouble = createMemoryLogSink()
+    const logger = createBackendLogger({ sink: logDouble.sink, now: () => Date.parse('2026-11-14T12:00:00.000Z') })
+
+    const publisherWithResolvedErrors = createRealtimePublisher({
+      publish: async () => ({
+        eventId: null,
+        eventTimestamp: null,
+        errors: [{ message: 'Realtime rate limit for lead@company.io', extensions: { statusCode: 429 } }],
+      }),
+      logger,
+    })
+
+    await expect(publisherWithResolvedErrors.publishSessionUpdated('round-1', 10_000)).resolves.toBeUndefined()
+    await expect(publisherWithResolvedErrors.publishPointsApplied('round-2', 5, 20_000)).resolves.toBeUndefined()
+
+    const warnEntries = logDouble.parsedWarnEntries()
+    expect(warnEntries).toHaveLength(2)
+    expect(warnEntries[0]?.event).toBe('realtime.publish_failed')
+    expect(warnEntries[1]?.event).toBe('realtime.publish_failed')
+    expect(logDouble.allSerialized()).not.toContain('lead@company.io')
+
+    // Empty errors array on successful PublishResult logs zero warnings
+    const cleanLogDouble = createMemoryLogSink()
+    const cleanPublisher = createRealtimePublisher({
+      publish: async () => ({
+        eventId: 'evt-ok',
+        eventTimestamp: '2026-11-14T12:00:00.000Z',
+        errors: [],
+      }),
+      logger: createBackendLogger({ sink: cleanLogDouble.sink, now: () => 1_000 }),
+    })
+    await cleanPublisher.publishSessionUpdated('round-1', 10_000)
+    expect(cleanLogDouble.warnRaw).toHaveLength(0)
+  })
 })
 
 describe('JiraClient current-user profile lookup and PII stripping (R5, R14)', () => {

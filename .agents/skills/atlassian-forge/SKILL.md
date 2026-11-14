@@ -5,7 +5,7 @@ description: Atlassian Forge architecture, verified SDK type signatures (@forge/
 
 # Atlassian Forge Architecture & SDK Rules (`atlassian-forge`)
 
-Authoritative reference for designing and implementing the Jira Cloud `jira:issuePanel` Scrum Poker app under `manifest.yml`, `src/`, and `static/panel/src/`.
+Authoritative reference for designing and implementing the Jira Cloud `jira:issueContext` Scrum Poker app under `manifest.yml`, `src/`, and `static/panel/src/`.
 
 ---
 

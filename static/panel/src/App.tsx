@@ -23,6 +23,23 @@ type CopyNoticeState =
 
 const MAX_HANDLED_ROUND_IDS = 64
 
+const themeInitByClient = new WeakMap<PokerClient, Promise<void>>()
+
+export function ensureThemeEnabled(client: PokerClient): Promise<void> {
+  const existing = themeInitByClient.get(client)
+  if (existing !== undefined) {
+    return existing
+  }
+  let pending: Promise<void>
+  try {
+    pending = Promise.resolve(client.enableTheme()).catch(() => {})
+  } catch {
+    pending = Promise.resolve()
+  }
+  themeInitByClient.set(client, pending)
+  return pending
+}
+
 function recordHandledRoundId(handledSet: Set<string>, roundId: string): boolean {
   if (handledSet.has(roundId)) {
     return false
@@ -73,7 +90,7 @@ export function ScrumPokerApp(props?: ScrumPokerAppProps): React.JSX.Element {
 
   useEffect(() => {
     mountedRef.current = true
-    void client.enableTheme().catch(() => {})
+    void ensureThemeEnabled(client)
 
     const refreshSessionInBackground = async (): Promise<void> => {
       const fetchId = ++latestFetchIdRef.current
@@ -131,6 +148,15 @@ export function ScrumPokerApp(props?: ScrumPokerAppProps): React.JSX.Element {
 
     const unsubscribe = client.subscribeToSessionEvents(handleRealtimeEvent)
 
+    const handleVisibilityChange = (): void => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        void refreshSessionInBackground()
+      }
+    }
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibilityChange)
+    }
+
     const loadInitial = async (): Promise<void> => {
       const fetchId = ++latestFetchIdRef.current
       const epochAtStart = mutationEpochRef.current
@@ -163,6 +189,9 @@ export function ScrumPokerApp(props?: ScrumPokerAppProps): React.JSX.Element {
 
     return () => {
       mountedRef.current = false
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibilityChange)
+      }
       void unsubscribe()
     }
   }, [client, updateSession])

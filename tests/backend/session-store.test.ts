@@ -4,6 +4,10 @@ import type { RoundMeta, VoteRecord } from '../../src/domain/types'
 import {
   assertSafeIdentifier,
   buildMetaKey,
+  buildRoundActivityKey,
+  buildRoundClosedKey,
+  buildRoundOverrideKey,
+  buildRoundStatusKey,
   buildVoteKey,
   buildVoteKeyPrefix,
   createSessionStore,
@@ -257,5 +261,56 @@ describe('SessionStore round metadata, voter records, 24h TTL, and pagination (R
     const lastQueryIdx = kvsDouble.operations.map((op) => op.op).lastIndexOf('query')
     expect(lastQueryIdx).toBeGreaterThanOrEqual(1)
     expect(firstDeleteIdx).toBeGreaterThan(lastQueryIdx)
+  })
+
+  it('maintains monotonic per-round status, override, activity, and closed tombstones even if base meta is overwritten', async () => {
+    const kvsDouble = createInMemoryKvsDouble()
+    const store = createSessionStore(kvsDouble.client)
+
+    expect(buildRoundStatusKey('10042', 'round-1')).toBe('poker:10042:round-1:status')
+    expect(buildRoundOverrideKey('10042', 'round-1')).toBe('poker:10042:round-1:override')
+    expect(buildRoundActivityKey('10042', 'round-1')).toBe('poker:10042:round-1:activity')
+    expect(buildRoundClosedKey('10042', 'round-1')).toBe('poker:10042:round-1:closed')
+
+    await store.initializeRound('10042', 'round-1', 1_000)
+    await store.touchRoundActivity('10042', 'round-1', 2_000)
+    expect(await store.getRoundMeta('10042')).toEqual({
+      roundId: 'round-1',
+      status: 'voting',
+      overrideScore: null,
+      updatedAt: 2_000,
+    })
+
+    await store.markRoundRevealed('10042', 'round-1', 3_000)
+    await store.setRoundOverride('10042', 'round-1', 13, 4_000)
+
+    // Even if a delayed writer overwrites raw poker:10042:meta back to voting/null, per-round keys preserve revealed + override
+    kvsDouble.seedRoundMeta('10042', {
+      roundId: 'round-1',
+      status: 'voting',
+      overrideScore: null,
+      updatedAt: 1_500,
+    })
+    expect(await store.getRoundMeta('10042')).toEqual({
+      roundId: 'round-1',
+      status: 'revealed',
+      overrideScore: 13,
+      updatedAt: 4_000,
+    })
+
+    // Advancing round-1 -> round-2 writes round-1:closed so stale round-1 meta writes still resolve to round-2
+    await store.advanceRound('10042', 'round-1', 'round-2', 5_000)
+    kvsDouble.seedRoundMeta('10042', {
+      roundId: 'round-1',
+      status: 'voting',
+      overrideScore: null,
+      updatedAt: 1_500,
+    })
+    expect(await store.getRoundMeta('10042')).toEqual({
+      roundId: 'round-2',
+      status: 'voting',
+      overrideScore: null,
+      updatedAt: 5_000,
+    })
   })
 })

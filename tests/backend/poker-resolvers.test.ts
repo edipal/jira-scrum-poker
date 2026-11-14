@@ -579,11 +579,14 @@ describe('R3: Voting, updating, withdrawing, toggle-off, individual vote expiry,
     expect(harness.kvsDouble.getSetOptions('poker:10001:meta')).toEqual(KVS_TTL_24H)
     expect(harness.kvsDouble.getSetOptions('poker:10001:round-1:vote:712020:alice')).toEqual(KVS_TTL_24H)
 
-    // 2. Update vote '5' -> '8' keeping 1 participant
+    // 2. Update vote '5' -> '8' keeping 1 participant and reusing stored profile (zero /myself calls)
     harness.advanceMs(5_000)
+    harness.resetCounters()
     const s2 = await harness.handlers.castVote({ context: ctx, payload: { card: '8' } })
     expect(s2.participants).toHaveLength(1)
     expect(s2.viewerCard).toBe('8')
+    expect(harness.jiraCallCounts.getCurrentUserProfile).toBe(0)
+    expect(harness.jiraCallCounts.getEditableStoryPointsField).toBe(1)
 
     // 3. Toggle off by re-selecting active card '8' (zero getCurrentUserProfile calls on toggle-off)
     harness.advanceMs(5_000)
@@ -1733,5 +1736,274 @@ describe('R11: User-attributed applyStoryPoints write-back, failure atomicity, a
 
     expect(harness.logDouble.parsedWarnEntries().length).toBeGreaterThanOrEqual(3)
     expect(harness.logDouble.allSerialized()).not.toContain('ops@acme.io')
+  })
+})
+
+describe('Monotonic round transitions under gated Jira & KVS interleaving (race regression)', () => {
+  function createDeferredGate() {
+    let release!: () => void
+    let notifyArrived!: () => void
+    const gatePromise = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const arrivedPromise = new Promise<void>((resolve) => {
+      notifyArrived = resolve
+    })
+    return {
+      arrivedPromise,
+      async waitAtGate(): Promise<void> {
+        notifyArrived()
+        await gatePromise
+      },
+      release(): void {
+        release()
+      },
+    }
+  }
+
+  it('prevents an in-flight castVote (paused on Jira or gated KVS set) from reverting revealVotes', async () => {
+    // Subcase A: Alice paused on /myself + /editmeta while Bob reveals votes
+    const jiraGate = createDeferredGate()
+    let gateMyself = false
+    const jiraRaceHarness = createBackendTestHarness({
+      initialNowMs: 20_000_000,
+      seedMetas: [
+        {
+          issueId: '10001',
+          meta: { roundId: 'round-1', status: 'voting', overrideScore: null, updatedAt: 19_990_000 },
+        },
+      ],
+      seedVotes: [
+        {
+          vote: { accountId: '712020:bob', displayName: 'Bob', avatarUrl: null, card: '5', votedAt: 19_991_000 },
+        },
+      ],
+      jiraConfig: {
+        onMyself: async () => {
+          if (gateMyself) {
+            await jiraGate.waitAtGate()
+          }
+          return jsonJiraResponse(200, { accountId: '712020:alice', displayName: 'Alice', avatarUrls: {} })
+        },
+      },
+    })
+
+    gateMyself = true
+    const aliceCastDuringJira = jiraRaceHarness.handlers.castVote({
+      context: makeHostContext('10001', '712020:alice'),
+      payload: { card: '8' },
+    })
+    await jiraGate.arrivedPromise
+
+    const bobReveal = await jiraRaceHarness.handlers.revealVotes({
+      context: makeHostContext('10001', '712020:bob'),
+    })
+    expect(bobReveal.status).toBe('revealed')
+    expect(bobReveal.recommendedScore).toBe(5)
+
+    gateMyself = false
+    jiraGate.release()
+    const aliceResultA = await aliceCastDuringJira
+    expect(aliceResultA.status).toBe('revealed')
+
+    const afterJiraRace = await jiraRaceHarness.handlers.getSession({
+      context: makeHostContext('10001', '712020:bob'),
+    })
+    expect(afterJiraRace.status).toBe('revealed')
+    expect(afterJiraRace.recommendedScore).toBe(5)
+
+    // Subcase B: Adversarial gated KVS double pauses Alice's vote/activity KVS set while Bob reveals votes
+    const kvsSetGate = createDeferredGate()
+    let gateAliceKvsSet = false
+    const baseKvs = createInMemoryKvsDouble()
+    baseKvs.seedRoundMeta('10001', {
+      roundId: 'round-1',
+      status: 'voting',
+      overrideScore: null,
+      updatedAt: 19_990_000,
+    })
+    baseKvs.seedVoteRecord('10001', 'round-1', {
+      accountId: '712020:bob',
+      displayName: 'Bob',
+      avatarUrl: null,
+      card: '5',
+      votedAt: 19_991_000,
+    })
+
+    const gatedClient = {
+      ...baseKvs.client,
+      async set<T = unknown>(key: string, value: T, options?: Parameters<typeof baseKvs.client.set>[2]) {
+        if (gateAliceKvsSet && (key.includes(':vote:712020:alice') || key.endsWith(':activity'))) {
+          gateAliceKvsSet = false
+          await kvsSetGate.waitAtGate()
+        }
+        await baseKvs.client.set(key, value, options)
+      },
+    }
+
+    const store = createSessionStore(gatedClient)
+    const jira = createJiraClient({ requestAsUser: createFakeJiraDouble().requestAsUser })
+    const realtime = createRealtimePublisher({ publish: createFakeRealtimeDouble().publish })
+    const handlers = createPokerResolverHandlers({
+      store,
+      jira,
+      realtime,
+      now: () => 20_000_000,
+    })
+
+    gateAliceKvsSet = true
+    const aliceCastGatedKvs = handlers.castVote({
+      context: makeHostContext('10001', '712020:alice'),
+      payload: { card: '13' },
+    })
+    await kvsSetGate.arrivedPromise
+
+    const revealedDuringGate = await handlers.revealVotes({
+      context: makeHostContext('10001', '712020:bob'),
+    })
+    expect(revealedDuringGate.status).toBe('revealed')
+
+    kvsSetGate.release()
+    const aliceResultB = await aliceCastGatedKvs
+    expect(aliceResultB.status).toBe('revealed')
+
+    const afterKvsGate = await handlers.getSession({
+      context: makeHostContext('10001', '712020:bob'),
+    })
+    expect(afterKvsGate.status).toBe('revealed')
+  })
+
+  it('prevents an in-flight castVote (both active-round and initial idle-round) from reverting resetRound', async () => {
+    const kvsSetGate = createDeferredGate()
+    let gateInitialMetaSet = false
+    const baseKvs = createInMemoryKvsDouble()
+
+    const gatedClient = {
+      ...baseKvs.client,
+      async set<T = unknown>(key: string, value: T, options?: Parameters<typeof baseKvs.client.set>[2]) {
+        if (gateInitialMetaSet && key === 'poker:10001:meta') {
+          gateInitialMetaSet = false
+          await kvsSetGate.waitAtGate()
+        }
+        await baseKvs.client.set(key, value, options)
+      },
+    }
+
+    let nowMs = 30_000_000
+    const store = createSessionStore(gatedClient)
+    const jira = createJiraClient({ requestAsUser: createFakeJiraDouble().requestAsUser })
+    const realtime = createRealtimePublisher({ publish: createFakeRealtimeDouble().publish })
+    const handlers = createPokerResolverHandlers({
+      store,
+      jira,
+      realtime,
+      now: () => nowMs,
+    })
+
+    // Alice starts initial castVote on idle issue; her write to poker:10001:meta (round-1) is gated
+    gateInitialMetaSet = true
+    const aliceInitialCast = handlers.castVote({
+      context: makeHostContext('10001', '712020:alice'),
+      payload: { card: '8' },
+    })
+    await kvsSetGate.arrivedPromise
+
+    // Meanwhile Bob casts on round-1 and resets the round to round-2
+    nowMs += 1_000
+    await handlers.castVote({
+      context: makeHostContext('10001', '712020:bob'),
+      payload: { card: '5' },
+    })
+    nowMs += 1_000
+    const resetSnap = await handlers.resetRound({
+      context: makeHostContext('10001', '712020:bob'),
+    })
+    expect(resetSnap.roundId).toBe('round-2')
+
+    // Release Alice's stale round-1 meta set; round-1:closed tombstone keeps session on round-2 with 0 votes
+    kvsSetGate.release()
+    const aliceSnap = await aliceInitialCast
+    expect(aliceSnap.roundId).toBe('round-2')
+    expect(aliceSnap.status).toBe('voting')
+    expect(aliceSnap.participants).toHaveLength(0)
+
+    const finalSnap = await handlers.getSession({
+      context: makeHostContext('10001', '712020:bob'),
+    })
+    expect(finalSnap.roundId).toBe('round-2')
+    expect(finalSnap.status).toBe('voting')
+    expect(finalSnap.participants).toHaveLength(0)
+  })
+
+  it('prevents an in-flight withdrawVote from reverting revealVotes or clearing selectOverrideScore', async () => {
+    const kvsGate = createDeferredGate()
+    let gateActivityWrite = false
+    const baseKvs = createInMemoryKvsDouble()
+    baseKvs.seedRoundMeta('10001', {
+      roundId: 'round-1',
+      status: 'voting',
+      overrideScore: null,
+      updatedAt: 40_000_000,
+    })
+    baseKvs.seedVoteRecord('10001', 'round-1', {
+      accountId: '712020:alice',
+      displayName: 'Alice',
+      avatarUrl: null,
+      card: '3',
+      votedAt: 39_990_000,
+    })
+    baseKvs.seedVoteRecord('10001', 'round-1', {
+      accountId: '712020:bob',
+      displayName: 'Bob',
+      avatarUrl: null,
+      card: '8',
+      votedAt: 39_995_000,
+    })
+
+    const gatedClient = {
+      ...baseKvs.client,
+      async set<T = unknown>(key: string, value: T, options?: Parameters<typeof baseKvs.client.set>[2]) {
+        if (gateActivityWrite && key.endsWith(':activity')) {
+          gateActivityWrite = false
+          await kvsGate.waitAtGate()
+        }
+        await baseKvs.client.set(key, value, options)
+      },
+    }
+
+    const store = createSessionStore(gatedClient)
+    const jira = createJiraClient({ requestAsUser: createFakeJiraDouble().requestAsUser })
+    const realtime = createRealtimePublisher({ publish: createFakeRealtimeDouble().publish })
+    const handlers = createPokerResolverHandlers({
+      store,
+      jira,
+      realtime,
+      now: () => 40_010_000,
+    })
+
+    gateActivityWrite = true
+    const withdrawPromise = handlers.withdrawVote({
+      context: makeHostContext('10001', '712020:alice'),
+    })
+    await kvsGate.arrivedPromise
+
+    await handlers.revealVotes({ context: makeHostContext('10001', '712020:bob') })
+    const overridden = await handlers.selectOverrideScore({
+      context: makeHostContext('10001', '712020:bob'),
+      payload: { score: 13 },
+    })
+    expect(overridden.status).toBe('revealed')
+    expect(overridden.targetScore).toBe(13)
+
+    kvsGate.release()
+    const withdrawResult = await withdrawPromise
+    expect(withdrawResult.status).toBe('revealed')
+    expect(withdrawResult.targetScore).toBe(13)
+
+    const finalSession = await handlers.getSession({
+      context: makeHostContext('10001', '712020:bob'),
+    })
+    expect(finalSession.status).toBe('revealed')
+    expect(finalSession.targetScore).toBe(13)
   })
 })

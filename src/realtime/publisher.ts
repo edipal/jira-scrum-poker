@@ -40,6 +40,23 @@ function assertFiniteUpdatedAt(updatedAt: unknown): number {
   return updatedAt === 0 ? 0 : updatedAt
 }
 
+function extractPublishResultErrors(result: unknown): unknown {
+  if (result === null || typeof result !== 'object' || Array.isArray(result)) {
+    return null
+  }
+  if (!('errors' in result)) {
+    return null
+  }
+  const { errors } = result as { readonly errors?: unknown }
+  if (errors === undefined || errors === null) {
+    return null
+  }
+  if (Array.isArray(errors)) {
+    return errors.length > 0 ? errors : null
+  }
+  return errors
+}
+
 const defaultPublish: RealtimePublishFn = (channel, payload) => publish(channel, payload)
 
 export function createRealtimePublisher(deps?: CreateRealtimePublisherDeps): RealtimePublisher {
@@ -57,7 +74,16 @@ export function createRealtimePublisher(deps?: CreateRealtimePublisherDeps): Rea
       }
 
       try {
-        await publishFn(POKER_REALTIME_CHANNEL, event)
+        const result = await publishFn(POKER_REALTIME_CHANNEL, event)
+        const resultErrors = extractPublishResultErrors(result)
+        if (resultErrors !== null) {
+          logger.warn('realtime.publish_failed', {
+            channel: POKER_REALTIME_CHANNEL,
+            eventType: 'SESSION_UPDATED',
+            roundId: validRoundId,
+            errors: resultErrors,
+          })
+        }
       } catch (error: unknown) {
         logger.warn('realtime.publish_failed', {
           channel: POKER_REALTIME_CHANNEL,
@@ -80,7 +106,16 @@ export function createRealtimePublisher(deps?: CreateRealtimePublisherDeps): Rea
       }
 
       try {
-        await publishFn(POKER_REALTIME_CHANNEL, event)
+        const result = await publishFn(POKER_REALTIME_CHANNEL, event)
+        const resultErrors = extractPublishResultErrors(result)
+        if (resultErrors !== null) {
+          logger.warn('realtime.publish_failed', {
+            channel: POKER_REALTIME_CHANNEL,
+            eventType: 'points-applied',
+            roundId: validRoundId,
+            errors: resultErrors,
+          })
+        }
       } catch (error: unknown) {
         logger.warn('realtime.publish_failed', {
           channel: POKER_REALTIME_CHANNEL,

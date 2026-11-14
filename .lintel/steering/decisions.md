@@ -11,7 +11,7 @@ Architectural and product decisions for **Scrum Poker for Jira** (`scrum-poker-j
 
 ### D-02: Per-Issue Placement via `jira:issuePanel`
 
-- **Status:** live
+- **Status:** superseded by D-11
 - **Decided:** 2026-11-12
 - **Decision:** Scope estimation strictly per Jira issue using the `jira:issuePanel` module (toggled from the Apps icon bar directly beneath the issue summary), rather than project-wide session rooms, right-sidebar `issueContext`, or `issueAction` modals.
 - **Why:** During refinement, everyone already views the ticket being discussed. Jira tracks `issuePanel` activation per issue (opening it once makes it visible on that ticket for teammates) while keeping unestimated issues clutter-free and leaving the issue description uncovered.
@@ -48,7 +48,7 @@ Architectural and product decisions for **Scrum Poker for Jira** (`scrum-poker-j
 
 - **Status:** live
 - **Decided:** 2026-11-12
-- **Decision:** Detect the target estimation field dynamically per issue via `GET /rest/api/3/issue/{issueIdOrKey}/editmeta`, matching editable (`operations` containing `'set'` when present) numeric (`schema.type === 'number'` when present) fields for `Story Points` (company-managed, tier 0) or `Story point estimate` (team-managed, tier 1, breaking same-tier ties by ascending `fieldId`), and write the score via `PUT /rest/api/3/issue/{issueIdOrKey}` using `api.asUser()`. When no matching editable field exists on the issue screen (or metadata is `401`/`403` for a read-only viewer), report `storyPointsField: null` so the panel shows an inline warning and switches the action button to **Copy Score**.
+- **Decision:** Detect the target estimation field dynamically per issue via `GET /rest/api/3/issue/{issueIdOrKey}/editmeta`, matching editable (`operations` containing `'set'` when present) numeric (`schema.type === 'number'` when present) fields for `Story Points` (company-managed, tier 0), `Story point estimate` (team-managed, tier 1), or `schema.custom === 'com.pyxis.greenhopper.jira:jsw-story-points'` (localized/renamed Jira Software Story Points fallback, tier 2, breaking same-tier ties by ascending `fieldId`), and write the score via `PUT /rest/api/3/issue/{issueIdOrKey}` using `api.asUser()`. When no matching editable field exists on the issue screen (or metadata is `401`/`403` for a read-only viewer), report `storyPointsField: null` so the panel shows an inline warning and switches the action button to **Copy Score**.
 - **Why:** Story Points is a custom field (`customfield_XXXXX`) whose ID varies across every Jira instance and project template, and some issue types (such as Sub-tasks or Bugs) omit it from their edit screen.
 
 ### D-08: Clear Round After Saving & Expire Unfinished Rounds After 24 Hours
@@ -71,3 +71,17 @@ Architectural and product decisions for **Scrum Poker for Jira** (`scrum-poker-j
 - **Decided:** 2026-11-13
 - **Decision:** Persist post-reveal consensus overrides on `RoundMeta.overrideScore` (`targetScore = overrideScore ?? recommendedScore`) and broadcast updates over `@forge/realtime`, while modeling `applyStoryPoints` outcomes as a discriminated union (`{ ok: true, appliedScore, fieldName, session } | { ok: false, reason: 'missing-field' | 'forbidden' | 'jira-error', score, message }`) distinct from `PokerDomainError` (`'validation-error' | 'invalid-state' | 'precondition-failed'`).
 - **Why:** Storing `overrideScore` on the round metadata keeps every connected teammate's panel aligned on the agreed target score before saving, and returning structured failure reasons on missing fields or Jira `401`/`403`/`5xx` responses guarantees atomic rollback-free preservation of revealed votes so another user can apply or copy the score.
+
+### D-11: Right-Sidebar Placement via `jira:issueContext`
+
+- **Status:** live
+- **Decided:** 2026-11-14
+- **Decision:** Render the per-issue Scrum Poker UI in Jira's right-hand sidebar using `jira:issueContext` in `manifest.yml` (superseding `D-02`'s `jira:issuePanel`).
+- **Why:** In Jira Cloud's current issue layout, `jira:issuePanel` renders below Description, Subtasks, Linked work items, and Confluence content rather than directly beneath the issue summary. Placing Scrum Poker in `jira:issueContext` keeps the estimation cards visible at the top of the right-hand sidebar alongside Story Points and Details so teammates can read the Description and vote side-by-side without scrolling.
+
+### D-12: Monotonic Per-Round KVS Keys for Race-Free Reveal, Override & Reset
+
+- **Status:** live
+- **Decided:** 2026-11-14
+- **Decision:** Isolate round lifecycle transitions into monotonic per-round KVS keys (`poker:{issueId}:{roundId}:status` for reveal, `:override` for target score override, `:activity` for vote activity timestamps, and `:closed` for forward round pointers on reset/apply/expiry rollover) so active-round vote casts and withdrawals only touch the voter key and `:activity` without rewriting shared round status or override state.
+- **Why:** `castVote` performs Jira REST calls (`/myself`, `/editmeta`) before writing to KVS; separating per-round status, override, and closed-round tombstones guarantees that an in-flight vote or withdrawal can never revert a concurrent **Show Votes**, **Set Story Points**, override selection, or **Reset / Re-vote**.

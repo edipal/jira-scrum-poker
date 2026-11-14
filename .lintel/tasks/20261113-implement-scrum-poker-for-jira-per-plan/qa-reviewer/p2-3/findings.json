@@ -1,9 +1,0 @@
-[
-  {
-    "id": "QAR-001",
-    "severity": "blocker",
-    "status": "fixed",
-    "where": "tests/backend/poker-resolvers.test.ts:1204-1225",
-    "summary": "In 'R8: Post-reveal consensus override via selectOverrideScore', the seeded votes ['3', '8'] produce arithmetic mean 5.5, which snaps to recommendedScore = 5 (|5.5 - 5| = 0.5 < |5.5 - 8| = 2.5), not 8. Verified fixed in p2-2 and preserved in p2-3: the test passes payload: { score: 8 } and asserts updatedNumeric.targetScore === 8, updatedNumeric.recommendedScore === 5, updatedNumeric.average === 5.5, updatedNumeric.formattedAverage === '5.5', peerView.targetScore === 8, and peerView.recommendedScore === 5."
-  }
-]

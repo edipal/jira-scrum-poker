@@ -62,12 +62,12 @@ Produces a deterministic, redacted or revealed session view tailored to the requ
 Determines which custom or system issue field, if any, represents the editable Story Points field on an issue's edit screen.
 - **Inputs & Defaults:** Issue editable-fields metadata map (`fieldId -> { name, schema, operations }`) or absent/malformed metadata.
 - **Qualification Rules:**
-  1. Whitespace-trimmed field `name` matches `'Story Points'` or `'Story point estimate'` case-insensitively (exact match after trimming; partial/suffixed names such as `'Story Points Legacy'` do not match).
+  1. Whitespace-trimmed field `name` matches `'Story Points'` or `'Story point estimate'` case-insensitively (exact match after trimming; partial/suffixed names such as `'Story Points Legacy'` without the Jira Software Story Points custom schema do not match), OR `schema.custom` equals `'com.pyxis.greenhopper.jira:jsw-story-points'` (for localized or renamed Jira Software Story Points fields).
   2. Field `schema.type`, when present, equals `'number'`.
   3. Field `operations` list, when present, includes `'set'`.
 - **Precedence & Tie-Breaking:**
-  1. Any qualifying field matching `'Story Points'` (case-insensitive) takes precedence over `'Story point estimate'`.
-  2. Multiple qualifying fields within the same name tier break ties by ascending lexicographical `fieldId` (for example, `'customfield_10010'` precedes `'customfield_10020'`).
+  1. Qualifying fields matching `'Story Points'` (tier 0) take precedence over `'Story point estimate'` (tier 1), which in turn takes precedence over fields matched solely via `schema.custom === 'com.pyxis.greenhopper.jira:jsw-story-points'` (tier 2).
+  2. Multiple qualifying fields within the same tier break ties by ascending lexicographical `fieldId` (for example, `'customfield_10010'` precedes `'customfield_10020'`).
 - **Postconditions:** Returns `{ fieldId, fieldName }` (with trimmed `fieldName`) for the winning field, or `null` when zero fields qualify or metadata is empty, malformed, or inaccessible.
 
 ---

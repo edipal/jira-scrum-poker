@@ -1,5 +1,6 @@
 import { type Root, createRoot } from 'react-dom/client'
-import { ScrumPokerApp, type ScrumPokerAppProps } from './App'
+import { ScrumPokerApp, type ScrumPokerAppProps, ensureThemeEnabled } from './App'
+import { createPokerClient } from './bridge/poker-client'
 import './styles.css'
 
 export function bootstrapIssuePanel(container: HTMLElement, props?: ScrumPokerAppProps): Root {
@@ -7,14 +8,22 @@ export function bootstrapIssuePanel(container: HTMLElement, props?: ScrumPokerAp
     throw new TypeError('Issue panel root container must be an HTMLElement')
   }
 
+  const client = props?.client ?? createPokerClient()
+  void ensureThemeEnabled(client)
+
   const root = createRoot(container)
-  root.render(<ScrumPokerApp {...props} />)
+  root.render(<ScrumPokerApp {...props} client={client} />)
   return root
 }
 
 if (typeof document !== 'undefined') {
   const rootElement = document.getElementById('root')
   if (rootElement instanceof HTMLElement) {
-    bootstrapIssuePanel(rootElement)
+    const client = createPokerClient()
+    void ensureThemeEnabled(client).finally(() => {
+      if (rootElement.isConnected) {
+        bootstrapIssuePanel(rootElement, { client })
+      }
+    })
   }
 }
