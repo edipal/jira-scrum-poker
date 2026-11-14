@@ -1,0 +1,88 @@
+{
+  "$schema": "../.agents/plugins/lintel/schema/config.schema.json",
+  "presets": [
+    "node"
+  ],
+  "paths": {
+    "tests": {
+      "unit": {
+        "paths": {
+          "add": [
+            "tests/**/*.test.ts",
+            "tests/**/*.test.tsx"
+          ]
+        }
+      },
+      "integration": {
+        "required": false
+      },
+      "e2e": {
+        "required": false
+      }
+    },
+    "build": {
+      "add": [
+        "biome.json",
+        "manifest.yml"
+      ]
+    },
+    "source": {
+      "add": [
+        "static/**/*.html",
+        "static/**/*.svg",
+        "static/**/*.css"
+      ]
+    },
+    "testOutput": {
+      "add": [
+        "static/panel/build/**"
+      ]
+    }
+  },
+  "skills": {
+    "architect": {
+      "add": [
+        "atlassian-forge"
+      ]
+    },
+    "qa": {
+      "add": [
+        "atlassian-forge",
+        "forge-testing"
+      ]
+    },
+    "dev": {
+      "add": [
+        "atlassian-forge"
+      ]
+    }
+  },
+  "steering": {
+    "all": [
+      "product.md",
+      "architecture.md",
+      "tech.md",
+      "structure.md",
+      "conventions.md",
+      "decisions.md"
+    ],
+    "architect": [
+      "testing.md"
+    ],
+    "qa": [
+      "testing.md"
+    ]
+  },
+  "models": {
+    "po": "inherit",
+    "po-reviewer": "inherit",
+    "architect": "inherit",
+    "architect-reviewer": "inherit",
+    "qa": "inherit",
+    "qa-reviewer": "inherit",
+    "dev": "inherit",
+    "dev-reviewer": "inherit",
+    "arbiter": "inherit",
+    "final-reviewer": "inherit"
+  }
+}

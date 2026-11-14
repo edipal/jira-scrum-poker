@@ -1,0 +1,38 @@
+{
+  "name": "scrum-poker-jira",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Free, ad-free per-issue Scrum Poker plugin for Jira Cloud built on Atlassian Forge.",
+  "scripts": {
+    "lint": "biome lint",
+    "format": "biome format --write",
+    "format:check": "biome format",
+    "typecheck": "tsc --noEmit",
+    "build:ui": "vite build",
+    "test": "vitest run",
+    "check": "npm run lint && npm run format:check && npm run typecheck && npm run build:ui"
+  },
+  "dependencies": {
+    "@forge/api": "^6.0.0",
+    "@forge/bridge": "^5.0.0",
+    "@forge/kvs": "^1.0.0",
+    "@forge/realtime": "^1.0.0",
+    "@forge/resolver": "^1.6.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.2.0",
+    "@types/node": "^22.13.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "jsdom": "^26.0.0",
+    "typescript": "^5.8.2",
+    "vite": "^6.2.0",
+    "vitest": "^3.0.8"
+  }
+}
