@@ -6,7 +6,7 @@ A free, ad-free, fast **Scrum Poker** estimation plugin for **Jira Cloud**, buil
 
 - **Zero Ads & Zero Per-Seat Fees:** Runs entirely inside your Jira Cloud tenant on Atlassian's free Forge compute & KVS tier.
 - **Runs on Atlassian (Zero Egress):** All votes, participant names, and Story Points updates stay inside Atlassian Cloud (`storage:app`, `read:jira-work`, `write:jira-work`, `read:jira-user`).
-- **Inline Issue Panel:** Opens directly beneath the issue summary from the Jira Apps bar and remembers its open/closed state per issue.
+- **Right-Sidebar Issue Context (`jira:issueContext`):** Renders in the right-hand sidebar alongside issue details so your team can read the Description and vote side-by-side without scrolling.
 - **Standard Fibonacci Deck:** `0, 1, 2, 3, 5, 8, 13, 21, ?` with hidden voter indicators (`Name ✓`), simultaneous reveal, arithmetic mean, and nearest-Fibonacci snapping (rounding up on exact midpoints).
 - **Zero-Setup Story Points Write-Back:** Automatically detects `Story Points` or `Story point estimate` on the issue's edit screen, supports one-click post-reveal score overrides, and falls back to a warning + **Copy Score** button if neither field is on the screen.
 - **Concurrent-Safe & Self-Expiring:** Uses isolated per-voter Forge KVS keys (`poker:{issueId}:{roundId}:vote:{accountId}`) with `@forge/realtime` live sync and automatic 24-hour expiration for unfinished rounds.

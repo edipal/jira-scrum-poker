@@ -70,8 +70,8 @@ describe('Platform manifest validation and Runs-on-Atlassian boundary (R14)', ()
       yaml: `${REPO_MANIFEST_YAML}\n# see http://example.com\n`,
     },
     {
-      label: 'missing jira:issuePanel module',
-      yaml: REPO_MANIFEST_YAML.replace('jira:issuePanel:', 'jira:issueContext:'),
+      label: 'missing jira:issuePanel or jira:issueContext module',
+      yaml: REPO_MANIFEST_YAML.replace(/jira:issue(?:Panel|Context):/, 'jira:issueActivity:'),
     },
     {
       label: 'wrong panel title',

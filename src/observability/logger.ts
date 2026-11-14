@@ -374,8 +374,8 @@ export function validatePlatformManifest(manifestYaml: string): ManifestValidati
     violations.push('Manifest must not contain external http:// or https:// URLs')
   }
 
-  if (!/^\s*jira:issuePanel\s*:/m.test(uncommentedYaml)) {
-    violations.push('Manifest must declare module jira:issuePanel')
+  if (!/^\s*(?:jira:issuePanel|jira:issueContext)\s*:/m.test(uncommentedYaml)) {
+    violations.push('Manifest must declare module jira:issuePanel or jira:issueContext')
   }
 
   if (!/^\s*(?:-\s+)?title\s*:\s*(?:['"]Scrum Poker['"]|Scrum Poker)\s*$/m.test(uncommentedYaml)) {
