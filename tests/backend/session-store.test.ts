@@ -420,4 +420,157 @@ describe('SessionStore round metadata, voter records, 24h TTL, and pagination (R
     expect(await store.getRoundMeta('10001')).toBeNull()
     expect(await store.listVoterRecords('10001', 'round-1', nowMs)).toEqual([])
   })
+
+  it('rejects cross-epoch writes and deletes when bound expectedEpoch differs or un-optioned vote predates session.startedAt', async () => {
+    let nowMs = 10_000
+    const ttlKvs = createTtlAwareKvsDouble({ now: () => nowMs })
+    const store = createSessionStore(ttlKvs.client)
+
+    await store.initializeRound('10001', 'round-1', nowMs)
+    const epoch1Ctx = await store.getRoundContext('10001', nowMs)
+    expect(epoch1Ctx.sessionEpoch).toBe('epoch-1')
+
+    // Force round-1 reuse while :session ('epoch-1') still exists -> new session gets 'epoch-2'
+    ttlKvs.evictKey('poker:10001:meta')
+    ttlKvs.evictKey('poker:10001:seq')
+    nowMs = 20_000
+    await store.initializeRound('10001', 'round-1', nowMs)
+    const epoch2Ctx = await store.getRoundContext('10001', nowMs)
+    expect(epoch2Ctx.sessionEpoch).toBe('epoch-2')
+
+    await store.setVoterRecord(
+      '10001',
+      'round-1',
+      {
+        accountId: '712020:alice',
+        displayName: 'Alice',
+        avatarUrl: null,
+        card: '3',
+        votedAt: 20_500,
+      },
+      { expectedEpoch: 'epoch-2' },
+    )
+
+    // Delayed old-session writes and deletes bound to 'epoch-1' (plus un-optioned pre-session vote) must all abort
+    await store.setVoterRecord(
+      '10001',
+      'round-1',
+      {
+        accountId: '712020:stale-bob',
+        displayName: 'Stale Bob',
+        avatarUrl: null,
+        card: '21',
+        votedAt: 10_500,
+      },
+      { expectedEpoch: 'epoch-1' },
+    )
+    await store.setVoterRecord('10001', 'round-1', {
+      accountId: '712020:unoptioned-stale',
+      displayName: 'Unoptioned Stale',
+      avatarUrl: null,
+      card: '13',
+      votedAt: 10_500,
+    })
+    await store.deleteVoterRecord('10001', 'round-1', '712020:alice', { expectedEpoch: 'epoch-1' })
+    await store.deleteRoundVotes('10001', 'round-1', { expectedEpoch: 'epoch-1' })
+    await store.markRoundRevealed('10001', 'round-1', 11_000, { expectedEpoch: 'epoch-1' })
+    await store.setRoundOverride('10001', 'round-1', 21, 11_000, { expectedEpoch: 'epoch-1' })
+    await store.touchRoundActivity('10001', 'round-1', 25_000, { expectedEpoch: 'epoch-1' })
+    const abortedAdvance = await store.advanceRound('10001', 'round-1', 'round-2', 11_000, {
+      expectedEpoch: 'epoch-1',
+    })
+
+    expect(abortedAdvance).toEqual({
+      roundId: 'round-1',
+      status: 'voting',
+      overrideScore: null,
+      updatedAt: 20_000,
+    })
+    expect(await store.getRoundMeta('10001', 21_000)).toEqual({
+      roundId: 'round-1',
+      status: 'voting',
+      overrideScore: null,
+      updatedAt: 20_000,
+    })
+    const survivingVotes = await store.listVoterRecords('10001', 'round-1', 21_000)
+    expect(survivingVotes).toEqual([
+      {
+        accountId: '712020:alice',
+        displayName: 'Alice',
+        avatarUrl: null,
+        card: '3',
+        votedAt: 20_500,
+      },
+    ])
+  })
+
+  it('migrates legacy un-epoched rounds in advanceRound and sweeps stale target-round tombstones and votes', async () => {
+    const kvsDouble = createInMemoryKvsDouble()
+    const store = createSessionStore(kvsDouble.client)
+
+    // Seed legacy un-epoched round-1 plus lingering legacy round-2 tombstones and vote
+    kvsDouble.seedRoundMeta('10001', {
+      roundId: 'round-1',
+      status: 'voting',
+      overrideScore: null,
+      updatedAt: 10_000,
+    })
+    kvsDouble.seedRaw('poker:10001:round-2:status', { status: 'revealed', updatedAt: 9_000 })
+    kvsDouble.seedRaw('poker:10001:round-2:override', { score: 21, updatedAt: 9_000 })
+    kvsDouble.seedRaw('poker:10001:round-2:closed', { nextRoundId: 'round-3', closedAt: 9_000 })
+    kvsDouble.seedVoteRecord('10001', 'round-2', {
+      accountId: '712020:legacy',
+      displayName: 'Legacy Voter',
+      avatarUrl: null,
+      card: '13',
+      votedAt: 9_000,
+    })
+
+    const advanced = await store.advanceRound('10001', 'round-1', 'round-2', 15_000, { expectedEpoch: null })
+    expect(advanced).toEqual({
+      roundId: 'round-2',
+      status: 'voting',
+      overrideScore: null,
+      updatedAt: 15_000,
+    })
+    expect(await store.getRoundContext('10001', 15_000)).toEqual({
+      meta: {
+        roundId: 'round-2',
+        status: 'voting',
+        overrideScore: null,
+        updatedAt: 15_000,
+      },
+      sessionEpoch: 'epoch-1',
+    })
+    expect(await store.listVoterRecords('10001', 'round-2', 15_000)).toEqual([])
+  })
+
+  it('filters unswept expired KVS entries via EXPIRE_TIME metadata before background KVS eviction runs', async () => {
+    const t0 = 100_000
+    let nowMs = t0
+    const ttlKvs = createTtlAwareKvsDouble({ now: () => nowMs, autoEvictOnRead: false })
+    const store = createSessionStore(ttlKvs.client)
+
+    await store.initializeRound('10001', 'round-1', t0)
+    await store.setVoterRecord(
+      '10001',
+      'round-1',
+      {
+        accountId: '712020:alice',
+        displayName: 'Alice',
+        avatarUrl: null,
+        card: '8',
+        votedAt: t0,
+      },
+      { expectedEpoch: 'epoch-1' },
+    )
+
+    // Advance clock past 24h TTL WITHOUT running background eviction (keys remain physically stored in KVS)
+    nowMs = t0 + SESSION_TTL_MS + 5_000
+    expect(ttlKvs.hasKey('poker:10001:meta')).toBe(true)
+    expect(ttlKvs.hasKey('poker:10001:round-1:vote:712020:alice')).toBe(true)
+
+    expect(await store.getRoundMeta('10001', nowMs)).toBeNull()
+    expect(await store.listVoterRecords('10001', 'round-1', nowMs)).toEqual([])
+  })
 })

@@ -1,4 +1,4 @@
-import { WhereConditions, kvs } from '@forge/kvs'
+import { type GetOptions, type MetadataField, WhereConditions, kvs } from '@forge/kvs'
 import { isValidDeckCard, isValidFibonacciScore, validateDeckCard, validateFibonacciScore } from '../domain/deck'
 import { isRoundExpired, normalizeDisplayName } from '../domain/session-view'
 import { type FibonacciScore, PokerDomainError, type RoundMeta, type VoteRecord } from '../domain/types'
@@ -16,6 +16,12 @@ export const KVS_TTL_7D = {
     unit: 'DAYS',
   },
 } as const
+
+const EXPIRE_TIME_FIELD = 'EXPIRE_TIME' as MetadataField
+
+export const KVS_GET_EXPIRE_OPTIONS: GetOptions = {
+  metadataFields: [EXPIRE_TIME_FIELD],
+}
 
 export const KVS_QUERY_LIMIT = 100
 
@@ -35,9 +41,18 @@ export interface KvsSetOptions {
   }
 }
 
+export type KvsGetOptions = GetOptions
+
+export interface KvsGetResult<T = unknown> {
+  readonly key: string
+  readonly value: T
+  readonly expireTime?: string
+}
+
 export interface KvsListItem<T = unknown> {
   readonly key: string
   readonly value: T
+  readonly expireTime?: string
 }
 
 export interface KvsListPage<T = unknown> {
@@ -56,14 +71,26 @@ export interface KvsQueryBuilderLike {
 
 export interface KvsClientLike {
   get<T = unknown>(key: string): Promise<T | undefined>
+  get<T = unknown>(key: string, options: KvsGetOptions): Promise<T | KvsGetResult<T> | undefined>
   set<T = unknown>(key: string, value: T, options?: KvsSetOptions): Promise<void>
   delete(key: string): Promise<void>
-  query(): KvsQueryBuilderLike
+  query(options?: KvsGetOptions): KvsQueryBuilderLike
+}
+
+export interface SessionWriteOptions {
+  readonly expectedEpoch?: string | null
+}
+
+export interface RoundContext {
+  readonly meta: RoundMeta | null
+  readonly sessionEpoch: string | null
 }
 
 interface StoredSessionRecord {
   readonly epoch: string
+  readonly initialRoundId?: string
   readonly startedAt: number
+  readonly updatedAt?: number
 }
 
 interface StoredRoundSeqRecord {
@@ -103,24 +130,42 @@ interface StoredVoteRecordEnvelope extends VoteRecord {
 }
 
 export interface SessionStore {
-  getRoundMeta(issueId: string): Promise<RoundMeta | null>
-  setRoundMeta(issueId: string, meta: RoundMeta): Promise<void>
+  getRoundMeta(issueId: string, nowMs?: number): Promise<RoundMeta | null>
+  getRoundContext(issueId: string, nowMs?: number): Promise<RoundContext>
+  setRoundMeta(issueId: string, meta: RoundMeta, options?: SessionWriteOptions): Promise<void>
   allocateRoundId(issueId: string, currentRoundId?: string | null): Promise<string>
-  initializeRound(issueId: string, roundId: string, nowMs: number): Promise<RoundMeta>
+  initializeRound(issueId: string, roundId: string, nowMs: number, options?: SessionWriteOptions): Promise<RoundMeta>
   advanceRound(
     issueId: string,
     previousRoundId: string | null,
     nextRoundIdValue: string,
     nowMs: number,
+    options?: SessionWriteOptions,
   ): Promise<RoundMeta>
-  touchRoundActivity(issueId: string, roundId: string, nowMs: number): Promise<void>
-  markRoundRevealed(issueId: string, roundId: string, nowMs: number): Promise<RoundMeta>
-  setRoundOverride(issueId: string, roundId: string, score: FibonacciScore, nowMs: number): Promise<RoundMeta>
-  getVoterRecord(issueId: string, roundId: string, accountId: string): Promise<VoteRecord | null>
-  setVoterRecord(issueId: string, roundId: string, vote: VoteRecord): Promise<void>
-  deleteVoterRecord(issueId: string, roundId: string, accountId: string): Promise<void>
-  listVoterRecords(issueId: string, roundId: string, nowMs: number): Promise<VoteRecord[]>
-  deleteRoundVotes(issueId: string, roundId: string): Promise<number>
+  touchRoundActivity(issueId: string, roundId: string, nowMs: number, options?: SessionWriteOptions): Promise<void>
+  markRoundRevealed(issueId: string, roundId: string, nowMs: number, options?: SessionWriteOptions): Promise<RoundMeta>
+  setRoundOverride(
+    issueId: string,
+    roundId: string,
+    score: FibonacciScore,
+    nowMs: number,
+    options?: SessionWriteOptions,
+  ): Promise<RoundMeta>
+  getVoterRecord(
+    issueId: string,
+    roundId: string,
+    accountId: string,
+    options?: SessionWriteOptions,
+  ): Promise<VoteRecord | null>
+  setVoterRecord(issueId: string, roundId: string, vote: VoteRecord, options?: SessionWriteOptions): Promise<void>
+  deleteVoterRecord(issueId: string, roundId: string, accountId: string, options?: SessionWriteOptions): Promise<void>
+  listVoterRecords(
+    issueId: string,
+    roundId: string,
+    nowMs: number,
+    options?: SessionWriteOptions,
+  ): Promise<VoteRecord[]>
+  deleteRoundVotes(issueId: string, roundId: string, options?: SessionWriteOptions): Promise<number>
 }
 
 function isNonNullObject(value: unknown): value is Record<string, unknown> {
@@ -148,6 +193,31 @@ function assertFiniteTimestamp(value: unknown, label: string): number {
     throw new PokerDomainError('validation-error', `${label} must be a finite number`)
   }
   return normalizeFiniteTimestamp(value)
+}
+
+function assertOptionalTimestamp(value: number | undefined, label: string): number | undefined {
+  if (value === undefined) {
+    return undefined
+  }
+  return assertFiniteTimestamp(value, label)
+}
+
+function isExpireTimePast(expireTime: unknown, nowMs?: number): boolean {
+  if (nowMs === undefined || typeof expireTime !== 'string' || expireTime.length === 0) {
+    return false
+  }
+  const expireAtMs = Date.parse(expireTime)
+  return Number.isFinite(expireAtMs) && nowMs >= expireAtMs
+}
+
+function unwrapKvsGetResult(raw: unknown, expectedKey: string, nowMs?: number): unknown {
+  if (!isNonNullObject(raw) || raw.key !== expectedKey || !('value' in raw)) {
+    return raw
+  }
+  if (isExpireTimePast(raw.expireTime, nowMs)) {
+    return undefined
+  }
+  return raw.value
 }
 
 export function assertSafeIdentifier(value: unknown, label: string): string {
@@ -259,21 +329,40 @@ function extractEpochNumber(value: unknown): number {
 }
 
 function computeMergedRoundSeq(
-  existingSeq: StoredRoundSeqRecord | null,
+  seqRecords: readonly (StoredRoundSeqRecord | null | undefined)[],
   roundIds: readonly (string | null | undefined)[],
-  epochNumber: number,
+  epochNumbers: readonly number[],
 ): StoredRoundSeqRecord | null {
-  let maxRound =
-    existingSeq !== null && POSITIVE_DECIMAL_PATTERN.test(existingSeq.lastRoundNumber)
-      ? BigInt(existingSeq.lastRoundNumber)
-      : 0n
+  let maxRound = 0n
+  let maxEpoch = 0
+
+  for (const seq of seqRecords) {
+    if (seq !== null && seq !== undefined) {
+      if (POSITIVE_DECIMAL_PATTERN.test(seq.lastRoundNumber)) {
+        const parsed = BigInt(seq.lastRoundNumber)
+        if (parsed > maxRound) {
+          maxRound = parsed
+        }
+      }
+      if (seq.lastEpochNumber > maxEpoch) {
+        maxEpoch = seq.lastEpochNumber
+      }
+    }
+  }
+
   for (const candidate of roundIds) {
     const parsed = extractStandardRoundNumber(candidate)
     if (parsed !== null && parsed > maxRound) {
       maxRound = parsed
     }
   }
-  const maxEpoch = Math.max(existingSeq?.lastEpochNumber ?? 0, epochNumber)
+
+  for (const epochNum of epochNumbers) {
+    if (epochNum > maxEpoch) {
+      maxEpoch = epochNum
+    }
+  }
+
   if (maxRound === 0n && maxEpoch === 0) {
     return null
   }
@@ -301,9 +390,16 @@ function parseStoredSessionRecord(raw: unknown): StoredSessionRecord | null {
   if (typeof raw.startedAt !== 'number' || !Number.isFinite(raw.startedAt)) {
     return null
   }
+  const initialRoundId = isSafeIdentifierString(raw.initialRoundId) ? raw.initialRoundId : undefined
+  const updatedAt =
+    typeof raw.updatedAt === 'number' && Number.isFinite(raw.updatedAt)
+      ? normalizeFiniteTimestamp(raw.updatedAt)
+      : undefined
   return {
     epoch: raw.epoch,
     startedAt: normalizeFiniteTimestamp(raw.startedAt),
+    ...(initialRoundId !== undefined ? { initialRoundId } : {}),
+    ...(updatedAt !== undefined ? { updatedAt } : {}),
   }
 }
 
@@ -512,27 +608,70 @@ function validateVoteRecordForWrite(rawVote: unknown): VoteRecord {
 export function createSessionStore(kvsClient?: KvsClientLike): SessionStore {
   const client: KvsClientLike = kvsClient ?? kvs
 
-  async function readActiveEpochAndSession(validIssueId: string): Promise<{
+  async function kvsGetUnwrapped(key: string, nowMs?: number): Promise<unknown> {
+    const raw = await client.get(key, KVS_GET_EXPIRE_OPTIONS)
+    return unwrapKvsGetResult(raw, key, nowMs)
+  }
+
+  async function readActiveEpochAndSession(
+    validIssueId: string,
+    nowMs?: number,
+  ): Promise<{
     activeEpoch: string | null
     session: StoredSessionRecord | null
     baseMeta: StoredRoundMetaEnvelope | null
   }> {
+    const metaKey = buildMetaKey(validIssueId)
+    const sessionKey = buildSessionKey(validIssueId)
     const [rawMeta, rawSession] = await Promise.all([
-      client.get(buildMetaKey(validIssueId)),
-      client.get(buildSessionKey(validIssueId)),
+      kvsGetUnwrapped(metaKey, nowMs),
+      kvsGetUnwrapped(sessionKey, nowMs),
     ])
-    const baseMeta = parseStoredRoundMetaEnvelope(rawMeta)
+
+    const parsedMeta = parseStoredRoundMetaEnvelope(rawMeta)
     const session = parseStoredSessionRecord(rawSession)
-    const activeEpoch = baseMeta?.sessionEpoch ?? session?.epoch ?? null
-    return { activeEpoch, session, baseMeta }
+
+    if (parsedMeta === null) {
+      return { activeEpoch: null, session, baseMeta: null }
+    }
+
+    const metaEpochNum = extractEpochNumber(parsedMeta.sessionEpoch)
+    const sessionEpochNum = extractEpochNumber(session?.epoch)
+
+    // If baseMeta explicitly carries an older epoch than session, baseMeta is a stale LWW write from a superseded epoch
+    if (
+      parsedMeta.sessionEpoch !== undefined &&
+      session !== null &&
+      sessionEpochNum > metaEpochNum &&
+      session.initialRoundId !== undefined
+    ) {
+      const recoveredMeta: StoredRoundMetaEnvelope = {
+        roundId: session.initialRoundId,
+        status: 'voting',
+        overrideScore: null,
+        updatedAt: session.updatedAt ?? session.startedAt,
+        sessionEpoch: session.epoch,
+      }
+      return { activeEpoch: session.epoch, session, baseMeta: recoveredMeta }
+    }
+
+    const activeEpoch =
+      metaEpochNum >= sessionEpochNum
+        ? (parsedMeta.sessionEpoch ?? session?.epoch ?? null)
+        : (session?.epoch ?? parsedMeta.sessionEpoch ?? null)
+
+    return { activeEpoch, session, baseMeta: parsedMeta }
   }
 
-  async function resolveCurrentRoundState(validIssueId: string): Promise<{
+  async function resolveCurrentRoundState(
+    validIssueId: string,
+    nowMs?: number,
+  ): Promise<{
     meta: RoundMeta | null
     activeEpoch: string | null
     session: StoredSessionRecord | null
   }> {
-    const { activeEpoch, session, baseMeta } = await readActiveEpochAndSession(validIssueId)
+    const { activeEpoch, session, baseMeta } = await readActiveEpochAndSession(validIssueId, nowMs)
     if (baseMeta === null) {
       return { meta: null, activeEpoch: null, session }
     }
@@ -548,16 +687,25 @@ export function createSessionStore(kvsClient?: KvsClientLike): SessionStore {
     let activityRecord: StoredRoundActivityRecord | null = null
 
     for (let hop = 0; hop <= MAX_CLOSED_ROUND_HOPS; hop += 1) {
+      const closedKey = buildRoundClosedKey(validIssueId, currentRoundId)
+      const statusKey = buildRoundStatusKey(validIssueId, currentRoundId)
+      const overrideKey = buildRoundOverrideKey(validIssueId, currentRoundId)
+      const activityKey = buildRoundActivityKey(validIssueId, currentRoundId)
+
       const [rawClosed, rawStatus, rawOverride, rawActivity] = await Promise.all([
-        client.get(buildRoundClosedKey(validIssueId, currentRoundId)),
-        client.get(buildRoundStatusKey(validIssueId, currentRoundId)),
-        client.get(buildRoundOverrideKey(validIssueId, currentRoundId)),
-        client.get(buildRoundActivityKey(validIssueId, currentRoundId)),
+        kvsGetUnwrapped(closedKey, nowMs),
+        kvsGetUnwrapped(statusKey, nowMs),
+        kvsGetUnwrapped(overrideKey, nowMs),
+        kvsGetUnwrapped(activityKey, nowMs),
       ])
 
       const parsedClosed = parseStoredRoundClosed(rawClosed)
       const closedRecord =
-        parsedClosed !== null && recordMatchesEpoch(parsedClosed.epoch, activeEpoch) ? parsedClosed : null
+        parsedClosed !== null &&
+        recordMatchesEpoch(parsedClosed.epoch, activeEpoch) &&
+        (nowMs === undefined || !isRoundExpired(parsedClosed.closedAt, nowMs))
+          ? parsedClosed
+          : null
 
       if (hop < MAX_CLOSED_ROUND_HOPS && closedRecord !== null && !visitedRounds.has(closedRecord.nextRoundId)) {
         visitedRounds.add(closedRecord.nextRoundId)
@@ -569,15 +717,28 @@ export function createSessionStore(kvsClient?: KvsClientLike): SessionStore {
       }
 
       const parsedStatus = parseStoredRoundStatus(rawStatus)
-      statusRecord = parsedStatus !== null && recordMatchesEpoch(parsedStatus.epoch, activeEpoch) ? parsedStatus : null
+      statusRecord =
+        parsedStatus !== null &&
+        recordMatchesEpoch(parsedStatus.epoch, activeEpoch) &&
+        (nowMs === undefined || !isRoundExpired(parsedStatus.updatedAt, nowMs))
+          ? parsedStatus
+          : null
 
       const parsedOverride = parseStoredRoundOverride(rawOverride)
       overrideRecord =
-        parsedOverride !== null && recordMatchesEpoch(parsedOverride.epoch, activeEpoch) ? parsedOverride : null
+        parsedOverride !== null &&
+        recordMatchesEpoch(parsedOverride.epoch, activeEpoch) &&
+        (nowMs === undefined || !isRoundExpired(parsedOverride.updatedAt, nowMs))
+          ? parsedOverride
+          : null
 
       const parsedActivity = parseStoredRoundActivity(rawActivity)
       activityRecord =
-        parsedActivity !== null && recordMatchesEpoch(parsedActivity.epoch, activeEpoch) ? parsedActivity : null
+        parsedActivity !== null &&
+        recordMatchesEpoch(parsedActivity.epoch, activeEpoch) &&
+        (nowMs === undefined || !isRoundExpired(parsedActivity.updatedAt, nowMs))
+          ? parsedActivity
+          : null
       break
     }
 
@@ -616,7 +777,10 @@ export function createSessionStore(kvsClient?: KvsClientLike): SessionStore {
     let cursor: string | undefined
 
     do {
-      let query = client.query().where('key', WhereConditions.beginsWith(prefix)).limit(KVS_QUERY_LIMIT)
+      let query = client
+        .query(KVS_GET_EXPIRE_OPTIONS)
+        .where('key', WhereConditions.beginsWith(prefix))
+        .limit(KVS_QUERY_LIMIT)
       if (cursor !== undefined) {
         query = query.cursor(cursor)
       }
@@ -646,23 +810,74 @@ export function createSessionStore(kvsClient?: KvsClientLike): SessionStore {
     }
   }
 
+  async function sweepStaleTargetRoundKeys(
+    validIssueId: string,
+    validRoundId: string,
+    targetEpoch: string,
+    targetEpochNumber: number,
+    observedRawStatus: unknown,
+    observedRawOverride: unknown,
+    observedRawClosed: unknown,
+  ): Promise<void> {
+    const cleanupOps: Promise<unknown>[] = [deleteStaleRoundVotes(validIssueId, validRoundId, targetEpoch)]
+    if (observedRawStatus !== undefined && extractEpochNumber(observedRawStatus) !== targetEpochNumber) {
+      cleanupOps.push(client.delete(buildRoundStatusKey(validIssueId, validRoundId)))
+    }
+    if (observedRawOverride !== undefined && extractEpochNumber(observedRawOverride) !== targetEpochNumber) {
+      cleanupOps.push(client.delete(buildRoundOverrideKey(validIssueId, validRoundId)))
+    }
+    if (observedRawClosed !== undefined && extractEpochNumber(observedRawClosed) !== targetEpochNumber) {
+      cleanupOps.push(client.delete(buildRoundClosedKey(validIssueId, validRoundId)))
+    }
+    await Promise.all(cleanupOps)
+  }
+
   return {
-    async getRoundMeta(issueId: string): Promise<RoundMeta | null> {
+    async getRoundMeta(issueId: string, nowMs?: number): Promise<RoundMeta | null> {
       const validIssueId = assertSafeIdentifier(issueId, 'issueId')
-      const { meta } = await resolveCurrentRoundState(validIssueId)
+      const validNowMs = assertOptionalTimestamp(nowMs, 'nowMs')
+      const { meta } = await resolveCurrentRoundState(validIssueId, validNowMs)
       return meta
     },
 
-    async setRoundMeta(issueId: string, meta: RoundMeta): Promise<void> {
+    async getRoundContext(issueId: string, nowMs?: number): Promise<RoundContext> {
+      const validIssueId = assertSafeIdentifier(issueId, 'issueId')
+      const validNowMs = assertOptionalTimestamp(nowMs, 'nowMs')
+      const { meta, activeEpoch } = await resolveCurrentRoundState(validIssueId, validNowMs)
+      return {
+        meta,
+        sessionEpoch: meta !== null ? activeEpoch : null,
+      }
+    },
+
+    async setRoundMeta(issueId: string, meta: RoundMeta, options?: SessionWriteOptions): Promise<void> {
       const validIssueId = assertSafeIdentifier(issueId, 'issueId')
       const validatedMeta = validateRoundMetaForWrite(meta)
-      const { activeEpoch, session } = await readActiveEpochAndSession(validIssueId)
+      const { activeEpoch, session, baseMeta } = await readActiveEpochAndSession(validIssueId)
+
+      if (options?.expectedEpoch !== undefined) {
+        if (options.expectedEpoch !== null && baseMeta === null) {
+          return
+        }
+        if (activeEpoch !== options.expectedEpoch) {
+          return
+        }
+      }
 
       const metaEnvelope: StoredRoundMetaEnvelope =
         activeEpoch !== null ? { ...validatedMeta, sessionEpoch: activeEpoch } : validatedMeta
       const writes: Promise<void>[] = [client.set(buildMetaKey(validIssueId), metaEnvelope, KVS_TTL_24H)]
-      if (session !== null) {
-        writes.push(client.set(buildSessionKey(validIssueId), session, KVS_TTL_24H))
+      if (session !== null && activeEpoch !== null) {
+        writes.push(
+          client.set(
+            buildSessionKey(validIssueId),
+            {
+              ...session,
+              updatedAt: Math.max(session.updatedAt ?? session.startedAt, validatedMeta.updatedAt),
+            } satisfies StoredSessionRecord,
+            KVS_TTL_24H,
+          ),
+        )
       }
       if (validatedMeta.status === 'revealed') {
         writes.push(
@@ -712,7 +927,8 @@ export function createSessionStore(kvsClient?: KvsClientLike): SessionStore {
         }
       }
 
-      const seqRecord = parseStoredRoundSeqRecord(await client.get(buildRoundSeqKey(validIssueId)))
+      const seqKey = buildRoundSeqKey(validIssueId)
+      const seqRecord = parseStoredRoundSeqRecord(await kvsGetUnwrapped(seqKey))
       const seqNum =
         seqRecord !== null && POSITIVE_DECIMAL_PATTERN.test(seqRecord.lastRoundNumber)
           ? BigInt(seqRecord.lastRoundNumber)
@@ -721,7 +937,12 @@ export function createSessionStore(kvsClient?: KvsClientLike): SessionStore {
       return `round-${(maxSeen + 1n).toString(10)}`
     },
 
-    async initializeRound(issueId: string, roundId: string, nowMs: number): Promise<RoundMeta> {
+    async initializeRound(
+      issueId: string,
+      roundId: string,
+      nowMs: number,
+      options?: SessionWriteOptions,
+    ): Promise<RoundMeta> {
       const validIssueId = assertSafeIdentifier(issueId, 'issueId')
       const validRoundId = assertSafeIdentifier(roundId, 'roundId')
       const validNowMs = assertFiniteTimestamp(nowMs, 'Round updatedAt')
@@ -732,34 +953,44 @@ export function createSessionStore(kvsClient?: KvsClientLike): SessionStore {
         updatedAt: validNowMs,
       }
 
-      const [rawMeta, rawSession, rawSeq, rawStatus, rawOverride, rawClosed, rawActivity] = await Promise.all([
-        client.get(buildMetaKey(validIssueId)),
-        client.get(buildSessionKey(validIssueId)),
-        client.get(buildRoundSeqKey(validIssueId)),
-        client.get(buildRoundStatusKey(validIssueId, validRoundId)),
-        client.get(buildRoundOverrideKey(validIssueId, validRoundId)),
-        client.get(buildRoundClosedKey(validIssueId, validRoundId)),
-        client.get(buildRoundActivityKey(validIssueId, validRoundId)),
+      const [
+        { activeEpoch: activeExistingEpoch, session: existingSession, baseMeta: existingMeta },
+        rawSeq,
+        rawStatus,
+        rawOverride,
+        rawClosed,
+        rawActivity,
+      ] = await Promise.all([
+        readActiveEpochAndSession(validIssueId, validNowMs),
+        kvsGetUnwrapped(buildRoundSeqKey(validIssueId), validNowMs),
+        kvsGetUnwrapped(buildRoundStatusKey(validIssueId, validRoundId), validNowMs),
+        kvsGetUnwrapped(buildRoundOverrideKey(validIssueId, validRoundId), validNowMs),
+        kvsGetUnwrapped(buildRoundClosedKey(validIssueId, validRoundId), validNowMs),
+        kvsGetUnwrapped(buildRoundActivityKey(validIssueId, validRoundId), validNowMs),
       ])
 
-      const existingMeta = parseStoredRoundMetaEnvelope(rawMeta)
-      const existingSession = parseStoredSessionRecord(rawSession)
       const existingSeq = parseStoredRoundSeqRecord(rawSeq)
-      const activeExistingEpoch = existingMeta?.sessionEpoch ?? existingSession?.epoch ?? null
+
+      if (options?.expectedEpoch !== undefined && activeExistingEpoch !== options.expectedEpoch) {
+        const { meta } = await resolveCurrentRoundState(validIssueId, validNowMs)
+        return meta ?? initialMeta
+      }
 
       if (
         existingMeta !== null &&
         !isRoundExpired(existingMeta.updatedAt, validNowMs) &&
         activeExistingEpoch !== null
       ) {
-        const refreshedSession: StoredSessionRecord = existingSession ?? {
+        const refreshedSession: StoredSessionRecord = {
           epoch: activeExistingEpoch,
-          startedAt: existingMeta.updatedAt,
+          initialRoundId: existingSession?.initialRoundId ?? existingMeta.roundId,
+          startedAt: existingSession?.startedAt ?? existingMeta.updatedAt,
+          updatedAt: Math.max(existingSession?.updatedAt ?? existingMeta.updatedAt, validNowMs),
         }
         const mergedSeq = computeMergedRoundSeq(
-          existingSeq,
+          [existingSeq],
           [existingMeta.roundId, validRoundId],
-          extractEpochNumber(activeExistingEpoch),
+          [extractEpochNumber(activeExistingEpoch)],
         )
         const refreshWrites: Promise<void>[] = [
           client.set(buildSessionKey(validIssueId), refreshedSession, KVS_TTL_24H),
@@ -773,7 +1004,7 @@ export function createSessionStore(kvsClient?: KvsClientLike): SessionStore {
           refreshWrites.push(client.set(buildRoundSeqKey(validIssueId), mergedSeq, KVS_TTL_7D))
         }
         await Promise.all(refreshWrites)
-        const { meta } = await resolveCurrentRoundState(validIssueId)
+        const { meta } = await resolveCurrentRoundState(validIssueId, validNowMs)
         return meta ?? initialMeta
       }
 
@@ -789,20 +1020,16 @@ export function createSessionStore(kvsClient?: KvsClientLike): SessionStore {
       const nextEpochNumber = maxPrevEpochNumber + 1
       const newEpoch = `epoch-${String(nextEpochNumber)}`
 
-      const staleKeyDeletes: Promise<unknown>[] = [deleteStaleRoundVotes(validIssueId, validRoundId, newEpoch)]
-      if (rawStatus !== undefined && extractEpochNumber(rawStatus) !== nextEpochNumber) {
-        staleKeyDeletes.push(client.delete(buildRoundStatusKey(validIssueId, validRoundId)))
-      }
-      if (rawOverride !== undefined && extractEpochNumber(rawOverride) !== nextEpochNumber) {
-        staleKeyDeletes.push(client.delete(buildRoundOverrideKey(validIssueId, validRoundId)))
-      }
-      if (rawClosed !== undefined && extractEpochNumber(rawClosed) !== nextEpochNumber) {
-        staleKeyDeletes.push(client.delete(buildRoundClosedKey(validIssueId, validRoundId)))
-      }
-      await Promise.all(staleKeyDeletes)
+      await sweepStaleTargetRoundKeys(
+        validIssueId,
+        validRoundId,
+        newEpoch,
+        nextEpochNumber,
+        rawStatus,
+        rawOverride,
+        rawClosed,
+      )
 
-      // Persist meta (carrying sessionEpoch) first so gated/concurrent writers share the deterministic epoch
-      // before advancing sequence counters, while readers immediately see sessionEpoch on meta.
       const metaWithEpoch: StoredRoundMetaEnvelope = {
         ...initialMeta,
         sessionEpoch: newEpoch,
@@ -810,18 +1037,42 @@ export function createSessionStore(kvsClient?: KvsClientLike): SessionStore {
       await client.set(buildMetaKey(validIssueId), metaWithEpoch, KVS_TTL_24H)
 
       const [latestRawSession, latestRawSeq] = await Promise.all([
-        client.get(buildSessionKey(validIssueId)),
-        client.get(buildRoundSeqKey(validIssueId)),
+        kvsGetUnwrapped(buildSessionKey(validIssueId), validNowMs),
+        kvsGetUnwrapped(buildRoundSeqKey(validIssueId), validNowMs),
       ])
       const latestSession = parseStoredSessionRecord(latestRawSession)
       const latestSeq = parseStoredRoundSeqRecord(latestRawSeq)
+      const latestEpochNumber = Math.max(extractEpochNumber(latestSession), latestSeq?.lastEpochNumber ?? 0)
+
+      // Guard against a newer epoch that started while meta set was gated
+      if (latestEpochNumber > nextEpochNumber) {
+        const mergedHigherSeq = computeMergedRoundSeq(
+          [existingSeq, latestSeq],
+          [validRoundId],
+          [nextEpochNumber, latestEpochNumber],
+        )
+        if (mergedHigherSeq !== null) {
+          await client.set(buildRoundSeqKey(validIssueId), mergedHigherSeq, KVS_TTL_7D)
+        }
+        const { meta } = await resolveCurrentRoundState(validIssueId, validNowMs)
+        return meta ?? initialMeta
+      }
 
       const sessionToWrite: StoredSessionRecord =
-        latestSession !== null && extractEpochNumber(latestSession) >= nextEpochNumber
-          ? latestSession
-          : { epoch: newEpoch, startedAt: validNowMs }
+        latestSession !== null && extractEpochNumber(latestSession) === nextEpochNumber
+          ? {
+              ...latestSession,
+              initialRoundId: latestSession.initialRoundId ?? validRoundId,
+              updatedAt: Math.max(latestSession.updatedAt ?? latestSession.startedAt, validNowMs),
+            }
+          : {
+              epoch: newEpoch,
+              initialRoundId: validRoundId,
+              startedAt: validNowMs,
+              updatedAt: validNowMs,
+            }
 
-      const mergedSeq = computeMergedRoundSeq(latestSeq ?? existingSeq, [validRoundId], nextEpochNumber)
+      const mergedSeq = computeMergedRoundSeq([existingSeq, latestSeq], [validRoundId], [nextEpochNumber])
       const followUpWrites: Promise<void>[] = [
         client.set(buildSessionKey(validIssueId), sessionToWrite, KVS_TTL_24H),
         client.set(
@@ -835,7 +1086,7 @@ export function createSessionStore(kvsClient?: KvsClientLike): SessionStore {
       }
       await Promise.all(followUpWrites)
 
-      const { meta } = await resolveCurrentRoundState(validIssueId)
+      const { meta } = await resolveCurrentRoundState(validIssueId, validNowMs)
       return meta ?? initialMeta
     },
 
@@ -844,10 +1095,16 @@ export function createSessionStore(kvsClient?: KvsClientLike): SessionStore {
       previousRoundId: string | null,
       nextRoundIdValue: string,
       nowMs: number,
+      options?: SessionWriteOptions,
     ): Promise<RoundMeta> {
       const validIssueId = assertSafeIdentifier(issueId, 'issueId')
       const validNextRoundId = assertSafeIdentifier(nextRoundIdValue, 'roundId')
       const validNowMs = assertFiniteTimestamp(nowMs, 'Round updatedAt')
+      const validPrevRoundId =
+        previousRoundId !== null && previousRoundId !== validNextRoundId
+          ? assertSafeIdentifier(previousRoundId, 'previousRoundId')
+          : null
+
       const newMeta: RoundMeta = {
         roundId: validNextRoundId,
         status: 'voting',
@@ -855,73 +1112,141 @@ export function createSessionStore(kvsClient?: KvsClientLike): SessionStore {
         updatedAt: validNowMs,
       }
 
-      const [{ activeEpoch, session }, rawSeq] = await Promise.all([
-        readActiveEpochAndSession(validIssueId),
-        client.get(buildRoundSeqKey(validIssueId)),
+      const [
+        { activeEpoch: currentActiveEpoch, session: existingSession, baseMeta: existingMeta },
+        rawSeq,
+        rawNextStatus,
+        rawNextOverride,
+        rawNextClosed,
+        rawNextActivity,
+      ] = await Promise.all([
+        readActiveEpochAndSession(validIssueId, validNowMs),
+        kvsGetUnwrapped(buildRoundSeqKey(validIssueId), validNowMs),
+        kvsGetUnwrapped(buildRoundStatusKey(validIssueId, validNextRoundId), validNowMs),
+        kvsGetUnwrapped(buildRoundOverrideKey(validIssueId, validNextRoundId), validNowMs),
+        kvsGetUnwrapped(buildRoundClosedKey(validIssueId, validNextRoundId), validNowMs),
+        kvsGetUnwrapped(buildRoundActivityKey(validIssueId, validNextRoundId), validNowMs),
       ])
       const existingSeq = parseStoredRoundSeqRecord(rawSeq)
-      const metaEnvelope: StoredRoundMetaEnvelope =
-        activeEpoch !== null ? { ...newMeta, sessionEpoch: activeEpoch } : newMeta
+
+      if (options?.expectedEpoch !== undefined) {
+        if (existingMeta === null || currentActiveEpoch !== options.expectedEpoch) {
+          const { meta } = await resolveCurrentRoundState(validIssueId, validNowMs)
+          return meta ?? newMeta
+        }
+      }
+
+      const isContinuingActiveSession =
+        existingMeta !== null && !isRoundExpired(existingMeta.updatedAt, validNowMs) && currentActiveEpoch !== null
+
+      let targetEpoch: string
+      let targetEpochNumber: number
+      let sessionToWrite: StoredSessionRecord
+
+      if (isContinuingActiveSession) {
+        targetEpoch = currentActiveEpoch
+        targetEpochNumber = extractEpochNumber(targetEpoch)
+        sessionToWrite = {
+          epoch: targetEpoch,
+          initialRoundId: validNextRoundId,
+          startedAt: existingSession?.startedAt ?? validNowMs,
+          updatedAt: validNowMs,
+        }
+      } else {
+        // Migrate un-epoched legacy state or start a fresh epoch after 24h round expiry
+        const maxPrevEpochNumber = Math.max(
+          existingSeq?.lastEpochNumber ?? 0,
+          extractEpochNumber(existingMeta),
+          extractEpochNumber(existingSession),
+          extractEpochNumber(rawNextStatus),
+          extractEpochNumber(rawNextOverride),
+          extractEpochNumber(rawNextClosed),
+          extractEpochNumber(rawNextActivity),
+        )
+        targetEpochNumber = maxPrevEpochNumber + 1
+        targetEpoch = `epoch-${String(targetEpochNumber)}`
+        sessionToWrite = {
+          epoch: targetEpoch,
+          initialRoundId: validNextRoundId,
+          startedAt: validNowMs,
+          updatedAt: validNowMs,
+        }
+      }
+
+      const metaEnvelope: StoredRoundMetaEnvelope = {
+        ...newMeta,
+        sessionEpoch: targetEpoch,
+      }
 
       const writes: Promise<void>[] = [
         client.set(buildMetaKey(validIssueId), metaEnvelope, KVS_TTL_24H),
+        client.set(buildSessionKey(validIssueId), sessionToWrite, KVS_TTL_24H),
         client.set(
           buildRoundActivityKey(validIssueId, validNextRoundId),
-          activeEpoch !== null
-            ? ({ updatedAt: validNowMs, epoch: activeEpoch } satisfies StoredRoundActivityRecord)
-            : ({ updatedAt: validNowMs } satisfies StoredRoundActivityRecord),
+          { updatedAt: validNowMs, epoch: targetEpoch } satisfies StoredRoundActivityRecord,
           KVS_TTL_24H,
         ),
       ]
 
-      if (activeEpoch !== null) {
-        writes.push(
-          client.set(
-            buildSessionKey(validIssueId),
-            session ?? { epoch: activeEpoch, startedAt: validNowMs },
-            KVS_TTL_24H,
-          ),
-        )
-      }
-
-      let validPrevRoundId: string | null = null
-      if (previousRoundId !== null && previousRoundId !== validNextRoundId) {
-        validPrevRoundId = assertSafeIdentifier(previousRoundId, 'previousRoundId')
+      if (validPrevRoundId !== null) {
         writes.push(
           client.set(
             buildRoundClosedKey(validIssueId, validPrevRoundId),
-            activeEpoch !== null
-              ? ({
-                  nextRoundId: validNextRoundId,
-                  closedAt: validNowMs,
-                  epoch: activeEpoch,
-                } satisfies StoredRoundClosedRecord)
-              : ({ nextRoundId: validNextRoundId, closedAt: validNowMs } satisfies StoredRoundClosedRecord),
+            {
+              nextRoundId: validNextRoundId,
+              closedAt: validNowMs,
+              epoch: targetEpoch,
+            } satisfies StoredRoundClosedRecord,
             KVS_TTL_24H,
           ),
         )
       }
 
-      const mergedSeq = computeMergedRoundSeq(
-        existingSeq,
-        [validPrevRoundId, validNextRoundId],
-        extractEpochNumber(activeEpoch),
-      )
+      const mergedSeq = computeMergedRoundSeq([existingSeq], [validPrevRoundId, validNextRoundId], [targetEpochNumber])
       if (mergedSeq !== null) {
         writes.push(client.set(buildRoundSeqKey(validIssueId), mergedSeq, KVS_TTL_7D))
       }
 
       await Promise.all(writes)
-      const { meta } = await resolveCurrentRoundState(validIssueId)
+
+      // Sweep stale target-round keys AFTER committing meta so metaSetIdx < firstDeleteIdx holds
+      // while sessionEpoch on meta immediately shields concurrent readers.
+      if (!isContinuingActiveSession) {
+        await sweepStaleTargetRoundKeys(
+          validIssueId,
+          validNextRoundId,
+          targetEpoch,
+          targetEpochNumber,
+          rawNextStatus,
+          rawNextOverride,
+          rawNextClosed,
+        )
+      }
+
+      const { meta } = await resolveCurrentRoundState(validIssueId, validNowMs)
       return meta ?? newMeta
     },
 
-    async touchRoundActivity(issueId: string, roundId: string, nowMs: number): Promise<void> {
+    async touchRoundActivity(
+      issueId: string,
+      roundId: string,
+      nowMs: number,
+      options?: SessionWriteOptions,
+    ): Promise<void> {
       const validIssueId = assertSafeIdentifier(issueId, 'issueId')
       const validRoundId = assertSafeIdentifier(roundId, 'roundId')
       const validNowMs = assertFiniteTimestamp(nowMs, 'Round updatedAt')
 
-      const { activeEpoch: initialEpoch } = await readActiveEpochAndSession(validIssueId)
+      const { activeEpoch: initialEpoch, baseMeta: initialBaseMeta } = await readActiveEpochAndSession(
+        validIssueId,
+        validNowMs,
+      )
+      if (options?.expectedEpoch !== undefined) {
+        if (initialBaseMeta === null || initialEpoch !== options.expectedEpoch) {
+          return
+        }
+      }
+
       await client.set(
         buildRoundActivityKey(validIssueId, validRoundId),
         initialEpoch !== null
@@ -930,7 +1255,14 @@ export function createSessionStore(kvsClient?: KvsClientLike): SessionStore {
         KVS_TTL_24H,
       )
 
-      const { meta: currentMeta, activeEpoch, session } = await resolveCurrentRoundState(validIssueId)
+      const { meta: currentMeta, activeEpoch, session } = await resolveCurrentRoundState(validIssueId, validNowMs)
+      if (options?.expectedEpoch !== undefined && activeEpoch !== options.expectedEpoch) {
+        return
+      }
+      if (activeEpoch !== initialEpoch) {
+        return
+      }
+
       if (currentMeta !== null && currentMeta.roundId === validRoundId) {
         const refreshedUpdatedAt = Math.max(currentMeta.updatedAt, validNowMs)
         const refreshedMeta: StoredRoundMetaEnvelope =
@@ -943,7 +1275,12 @@ export function createSessionStore(kvsClient?: KvsClientLike): SessionStore {
           refreshWrites.push(
             client.set(
               buildSessionKey(validIssueId),
-              session ?? { epoch: activeEpoch, startedAt: refreshedUpdatedAt },
+              {
+                epoch: activeEpoch,
+                initialRoundId: session?.initialRoundId ?? currentMeta.roundId,
+                startedAt: session?.startedAt ?? refreshedUpdatedAt,
+                updatedAt: refreshedUpdatedAt,
+              } satisfies StoredSessionRecord,
               KVS_TTL_24H,
             ),
           )
@@ -952,18 +1289,38 @@ export function createSessionStore(kvsClient?: KvsClientLike): SessionStore {
       }
     },
 
-    async markRoundRevealed(issueId: string, roundId: string, nowMs: number): Promise<RoundMeta> {
+    async markRoundRevealed(
+      issueId: string,
+      roundId: string,
+      nowMs: number,
+      options?: SessionWriteOptions,
+    ): Promise<RoundMeta> {
       const validIssueId = assertSafeIdentifier(issueId, 'issueId')
       const validRoundId = assertSafeIdentifier(roundId, 'roundId')
       const validNowMs = assertFiniteTimestamp(nowMs, 'Round updatedAt')
 
-      const [{ activeEpoch, session }, rawOverride] = await Promise.all([
-        readActiveEpochAndSession(validIssueId),
-        client.get(buildRoundOverrideKey(validIssueId, validRoundId)),
+      const [{ activeEpoch, session, baseMeta }, rawOverride] = await Promise.all([
+        readActiveEpochAndSession(validIssueId, validNowMs),
+        kvsGetUnwrapped(buildRoundOverrideKey(validIssueId, validRoundId), validNowMs),
       ])
+
+      if (options?.expectedEpoch !== undefined) {
+        if (baseMeta === null || activeEpoch !== options.expectedEpoch) {
+          const { meta } = await resolveCurrentRoundState(validIssueId, validNowMs)
+          if (meta !== null) {
+            return meta
+          }
+          throw new PokerDomainError('precondition-failed', 'Cannot reveal votes when no active round exists')
+        }
+      }
+
       const parsedOverride = parseStoredRoundOverride(rawOverride)
       const existingOverride =
-        parsedOverride !== null && recordMatchesEpoch(parsedOverride.epoch, activeEpoch) ? parsedOverride : null
+        parsedOverride !== null &&
+        recordMatchesEpoch(parsedOverride.epoch, activeEpoch) &&
+        !isRoundExpired(parsedOverride.updatedAt, validNowMs)
+          ? parsedOverride
+          : null
 
       const revealedMeta: RoundMeta = {
         roundId: validRoundId,
@@ -988,24 +1345,48 @@ export function createSessionStore(kvsClient?: KvsClientLike): SessionStore {
         writes.push(
           client.set(
             buildSessionKey(validIssueId),
-            session ?? { epoch: activeEpoch, startedAt: validNowMs },
+            {
+              epoch: activeEpoch,
+              initialRoundId: session?.initialRoundId ?? validRoundId,
+              startedAt: session?.startedAt ?? validNowMs,
+              updatedAt: validNowMs,
+            } satisfies StoredSessionRecord,
             KVS_TTL_24H,
           ),
         )
       }
       await Promise.all(writes)
 
-      const { meta } = await resolveCurrentRoundState(validIssueId)
+      const { meta } = await resolveCurrentRoundState(validIssueId, validNowMs)
       return meta ?? revealedMeta
     },
 
-    async setRoundOverride(issueId: string, roundId: string, score: FibonacciScore, nowMs: number): Promise<RoundMeta> {
+    async setRoundOverride(
+      issueId: string,
+      roundId: string,
+      score: FibonacciScore,
+      nowMs: number,
+      options?: SessionWriteOptions,
+    ): Promise<RoundMeta> {
       const validIssueId = assertSafeIdentifier(issueId, 'issueId')
       const validRoundId = assertSafeIdentifier(roundId, 'roundId')
       const validScore = validateFibonacciScore(score)
       const validNowMs = assertFiniteTimestamp(nowMs, 'Round updatedAt')
 
-      const { activeEpoch, session } = await readActiveEpochAndSession(validIssueId)
+      const { activeEpoch, session, baseMeta } = await readActiveEpochAndSession(validIssueId, validNowMs)
+      if (options?.expectedEpoch !== undefined) {
+        if (baseMeta === null || activeEpoch !== options.expectedEpoch) {
+          const { meta } = await resolveCurrentRoundState(validIssueId, validNowMs)
+          if (meta !== null) {
+            return meta
+          }
+          throw new PokerDomainError(
+            'invalid-state',
+            'Target score override is only allowed during an active revealed round',
+          )
+        }
+      }
+
       const updatedMeta: RoundMeta = {
         roundId: validRoundId,
         status: 'revealed',
@@ -1036,57 +1417,129 @@ export function createSessionStore(kvsClient?: KvsClientLike): SessionStore {
         writes.push(
           client.set(
             buildSessionKey(validIssueId),
-            session ?? { epoch: activeEpoch, startedAt: validNowMs },
+            {
+              epoch: activeEpoch,
+              initialRoundId: session?.initialRoundId ?? validRoundId,
+              startedAt: session?.startedAt ?? validNowMs,
+              updatedAt: validNowMs,
+            } satisfies StoredSessionRecord,
             KVS_TTL_24H,
           ),
         )
       }
       await Promise.all(writes)
 
-      const { meta } = await resolveCurrentRoundState(validIssueId)
+      const { meta } = await resolveCurrentRoundState(validIssueId, validNowMs)
       return meta ?? updatedMeta
     },
 
-    async getVoterRecord(issueId: string, roundId: string, accountId: string): Promise<VoteRecord | null> {
+    async getVoterRecord(
+      issueId: string,
+      roundId: string,
+      accountId: string,
+      options?: SessionWriteOptions,
+    ): Promise<VoteRecord | null> {
       const validIssueId = assertSafeIdentifier(issueId, 'issueId')
       const key = buildVoteKey(validIssueId, roundId, accountId)
-      const [stored, { activeEpoch }] = await Promise.all([client.get(key), readActiveEpochAndSession(validIssueId)])
+      const [stored, { activeEpoch, baseMeta }] = await Promise.all([
+        kvsGetUnwrapped(key),
+        readActiveEpochAndSession(validIssueId),
+      ])
+      if (options?.expectedEpoch !== undefined && (baseMeta === null || activeEpoch !== options.expectedEpoch)) {
+        return null
+      }
+      const targetEpoch = options?.expectedEpoch !== undefined ? options.expectedEpoch : activeEpoch
       const parsed = parseStoredVoteRecordEnvelope(stored, accountId)
-      if (parsed === null || !recordMatchesEpoch(parsed.sessionEpoch, activeEpoch)) {
+      if (parsed === null || !recordMatchesEpoch(parsed.sessionEpoch, targetEpoch)) {
         return null
       }
       return stripVoteEnvelope(parsed)
     },
 
-    async setVoterRecord(issueId: string, roundId: string, vote: VoteRecord): Promise<void> {
+    async setVoterRecord(
+      issueId: string,
+      roundId: string,
+      vote: VoteRecord,
+      options?: SessionWriteOptions,
+    ): Promise<void> {
       const validIssueId = assertSafeIdentifier(issueId, 'issueId')
       const normalizedVote = validateVoteRecordForWrite(vote)
       const key = buildVoteKey(validIssueId, roundId, normalizedVote.accountId)
-      const { activeEpoch } = await readActiveEpochAndSession(validIssueId)
+      const { activeEpoch, session, baseMeta } = await readActiveEpochAndSession(validIssueId)
+
+      if (options?.expectedEpoch !== undefined) {
+        if (baseMeta === null || activeEpoch !== options.expectedEpoch) {
+          return
+        }
+      } else if (activeEpoch !== null && session !== null && normalizedVote.votedAt < session.startedAt) {
+        // Reject delayed pre-session vote writes even when invoked without an explicit expectedEpoch
+        return
+      }
+
+      const targetEpoch = options?.expectedEpoch !== undefined ? options.expectedEpoch : activeEpoch
       const envelope: StoredVoteRecordEnvelope =
-        activeEpoch !== null ? { ...normalizedVote, sessionEpoch: activeEpoch } : normalizedVote
+        targetEpoch !== null ? { ...normalizedVote, sessionEpoch: targetEpoch } : normalizedVote
       await client.set(key, envelope, KVS_TTL_24H)
     },
 
-    async deleteVoterRecord(issueId: string, roundId: string, accountId: string): Promise<void> {
-      const key = buildVoteKey(issueId, roundId, accountId)
+    async deleteVoterRecord(
+      issueId: string,
+      roundId: string,
+      accountId: string,
+      options?: SessionWriteOptions,
+    ): Promise<void> {
+      const validIssueId = assertSafeIdentifier(issueId, 'issueId')
+      const validAccountId = assertSafeIdentifier(accountId, 'accountId')
+      const key = buildVoteKey(validIssueId, roundId, validAccountId)
+
+      const [stored, { activeEpoch }] = await Promise.all([
+        kvsGetUnwrapped(key),
+        readActiveEpochAndSession(validIssueId),
+      ])
+
+      const targetEpoch = options?.expectedEpoch !== undefined ? options.expectedEpoch : activeEpoch
+      if (stored === undefined) {
+        if (targetEpoch === null) {
+          await client.delete(key)
+        }
+        return
+      }
+
+      const parsed = parseStoredVoteRecordEnvelope(stored, validAccountId)
+      if (parsed !== null && !recordMatchesEpoch(parsed.sessionEpoch, targetEpoch)) {
+        return
+      }
+
       await client.delete(key)
     },
 
-    async listVoterRecords(issueId: string, roundId: string, nowMs: number): Promise<VoteRecord[]> {
+    async listVoterRecords(
+      issueId: string,
+      roundId: string,
+      nowMs: number,
+      options?: SessionWriteOptions,
+    ): Promise<VoteRecord[]> {
       const validIssueId = assertSafeIdentifier(issueId, 'issueId')
       const prefix = buildVoteKeyPrefix(validIssueId, roundId)
       if (typeof nowMs !== 'number' || !Number.isFinite(nowMs)) {
         throw new PokerDomainError('validation-error', 'nowMs must be a finite number')
       }
 
-      const { activeEpoch } = await readActiveEpochAndSession(validIssueId)
+      const { activeEpoch, baseMeta } = await readActiveEpochAndSession(validIssueId, nowMs)
+      if (options?.expectedEpoch !== undefined && (baseMeta === null || activeEpoch !== options.expectedEpoch)) {
+        return []
+      }
+      const targetEpoch = options?.expectedEpoch !== undefined ? options.expectedEpoch : activeEpoch
+
       const activeVotes: VoteRecord[] = []
       const seenCursors = new Set<string>()
       let cursor: string | undefined
 
       do {
-        let query = client.query().where('key', WhereConditions.beginsWith(prefix)).limit(KVS_QUERY_LIMIT)
+        let query = client
+          .query(KVS_GET_EXPIRE_OPTIONS)
+          .where('key', WhereConditions.beginsWith(prefix))
+          .limit(KVS_QUERY_LIMIT)
         if (cursor !== undefined) {
           query = query.cursor(cursor)
         }
@@ -1095,10 +1548,13 @@ export function createSessionStore(kvsClient?: KvsClientLike): SessionStore {
           if (!isNonNullObject(item)) {
             continue
           }
+          if (isExpireTimePast(item.expireTime, nowMs)) {
+            continue
+          }
           const parsed = parseStoredVoteRecordEnvelope(item.value)
           if (
             parsed !== null &&
-            recordMatchesEpoch(parsed.sessionEpoch, activeEpoch) &&
+            recordMatchesEpoch(parsed.sessionEpoch, targetEpoch) &&
             !isRoundExpired(parsed.votedAt, nowMs)
           ) {
             activeVotes.push(stripVoteEnvelope(parsed))
@@ -1118,22 +1574,33 @@ export function createSessionStore(kvsClient?: KvsClientLike): SessionStore {
       return activeVotes
     },
 
-    async deleteRoundVotes(issueId: string, roundId: string): Promise<number> {
-      const prefix = buildVoteKeyPrefix(issueId, roundId)
+    async deleteRoundVotes(issueId: string, roundId: string, options?: SessionWriteOptions): Promise<number> {
+      const validIssueId = assertSafeIdentifier(issueId, 'issueId')
+      const prefix = buildVoteKeyPrefix(validIssueId, roundId)
       const keysToDelete: string[] = []
       const seenCursors = new Set<string>()
       let cursor: string | undefined
 
       do {
-        let query = client.query().where('key', WhereConditions.beginsWith(prefix)).limit(KVS_QUERY_LIMIT)
+        let query = client
+          .query(KVS_GET_EXPIRE_OPTIONS)
+          .where('key', WhereConditions.beginsWith(prefix))
+          .limit(KVS_QUERY_LIMIT)
         if (cursor !== undefined) {
           query = query.cursor(cursor)
         }
         const page = await query.getMany()
         for (const item of page.results) {
-          if (isNonNullObject(item) && typeof item.key === 'string' && item.key.length > 0) {
-            keysToDelete.push(item.key)
+          if (!isNonNullObject(item) || typeof item.key !== 'string' || item.key.length === 0) {
+            continue
           }
+          if (options?.expectedEpoch !== undefined) {
+            const parsed = parseStoredVoteRecordEnvelope(item.value)
+            if (parsed !== null && !recordMatchesEpoch(parsed.sessionEpoch, options.expectedEpoch)) {
+              continue
+            }
+          }
+          keysToDelete.push(item.key)
         }
 
         const next = typeof page.nextCursor === 'string' && page.nextCursor.length > 0 ? page.nextCursor : undefined
@@ -1146,7 +1613,9 @@ export function createSessionStore(kvsClient?: KvsClientLike): SessionStore {
         cursor = next
       } while (cursor !== undefined)
 
-      await Promise.all(keysToDelete.map((key) => client.delete(key)))
+      if (keysToDelete.length > 0) {
+        await Promise.all(keysToDelete.map((key) => client.delete(key)))
+      }
       return keysToDelete.length
     },
   }

@@ -2136,7 +2136,7 @@ describe('Monotonic round transitions under gated Jira & KVS interleaving (race 
     expect(expiredAfterLastVote.participants).toEqual([])
   })
 
-  it('uses the authoritative RoundMeta returned by advanceRound in resetRound and applyStoryPoints under concurrent chaining', async () => {
+  it('uses the authoritative RoundMeta returned by advanceRound in resetRound and applyStoryPoints under concurrent chaining (including concurrent votes on the target round)', async () => {
     const baseKvs = createInMemoryKvsDouble()
     const store = createSessionStore(baseKvs.client)
     const jira = createJiraClient({ requestAsUser: createFakeJiraDouble().requestAsUser })
@@ -2150,22 +2150,39 @@ describe('Monotonic round transitions under gated Jira & KVS interleaving (race 
       now: () => nowMs,
     })
 
-    // 1. resetRound when round-2 is already closed forward to round-3
-    baseKvs.seedRoundMeta('10001', {
+    // 1. resetRound when round-2 is already closed forward to round-3 within 'epoch-1' (with a concurrent vote in round-3)
+    baseKvs.seedRaw('poker:10001:session', {
+      epoch: 'epoch-1',
+      initialRoundId: 'round-1',
+      startedAt: nowMs - 1_000,
+      updatedAt: nowMs - 1_000,
+    })
+    baseKvs.seedRaw('poker:10001:meta', {
       roundId: 'round-1',
       status: 'voting',
       overrideScore: null,
       updatedAt: nowMs - 1_000,
+      sessionEpoch: 'epoch-1',
     })
     baseKvs.seedRaw('poker:10001:round-2:closed', {
       nextRoundId: 'round-3',
       closedAt: nowMs,
+      epoch: 'epoch-1',
+    })
+    baseKvs.seedRaw('poker:10001:round-3:vote:712020:bob', {
+      accountId: '712020:bob',
+      displayName: 'Bob',
+      avatarUrl: null,
+      card: '5',
+      votedAt: nowMs,
+      sessionEpoch: 'epoch-1',
     })
 
     const resetResult = await handlers.resetRound({
       context: makeHostContext('10001', '712020:alice'),
     })
     expect(resetResult.roundId).toBe('round-3')
+    expect(resetResult.participants.map((p) => p.accountId)).toEqual(['712020:bob'])
     expect(realtimeDouble.events).toEqual([
       {
         channel: 'scrum-poker',
@@ -2173,17 +2190,33 @@ describe('Monotonic round transitions under gated Jira & KVS interleaving (race 
       },
     ])
 
-    // 2. applyStoryPoints when round-4 is already closed forward to round-5
+    // 2. applyStoryPoints when round-4 is already closed forward to round-5 within 'epoch-1' (with a concurrent vote in round-5)
     realtimeDouble.resetEvents()
-    baseKvs.seedRoundMeta('10002', {
+    baseKvs.seedRaw('poker:10002:session', {
+      epoch: 'epoch-1',
+      initialRoundId: 'round-3',
+      startedAt: nowMs - 1_000,
+      updatedAt: nowMs - 1_000,
+    })
+    baseKvs.seedRaw('poker:10002:meta', {
       roundId: 'round-3',
       status: 'revealed',
       overrideScore: 8,
       updatedAt: nowMs - 1_000,
+      sessionEpoch: 'epoch-1',
     })
     baseKvs.seedRaw('poker:10002:round-4:closed', {
       nextRoundId: 'round-5',
       closedAt: nowMs,
+      epoch: 'epoch-1',
+    })
+    baseKvs.seedRaw('poker:10002:round-5:vote:712020:charlie', {
+      accountId: '712020:charlie',
+      displayName: 'Charlie',
+      avatarUrl: null,
+      card: '13',
+      votedAt: nowMs,
+      sessionEpoch: 'epoch-1',
     })
 
     const applyResult = await handlers.applyStoryPoints({
@@ -2193,6 +2226,7 @@ describe('Monotonic round transitions under gated Jira & KVS interleaving (race 
     expect(applyResult.ok).toBe(true)
     if (applyResult.ok) {
       expect(applyResult.session.roundId).toBe('round-5')
+      expect(applyResult.session.participants.map((p) => p.accountId)).toEqual(['712020:charlie'])
     }
     expect(realtimeDouble.events).toEqual([
       {
@@ -2200,5 +2234,249 @@ describe('Monotonic round transitions under gated Jira & KVS interleaving (race 
         payload: { type: 'points-applied', roundId: 'round-5', score: 8, updatedAt: nowMs },
       },
     ])
+  })
+
+  it('isolates delayed old-session castVote, withdrawVote, and applyStoryPoints across forced round-1 reuse in a new epoch', async () => {
+    let nowMs = 90_000_000
+    const myselfGate = createDeferredGate()
+    const putIssueGate = createDeferredGate()
+    const withdrawGetGate = createDeferredGate()
+    let gateOldAliceMyself = false
+    let gateOldApplyPut = false
+    let gateOldDanaWithdraw = false
+
+    const ttlKvs = createTtlAwareKvsDouble({ now: () => nowMs })
+    async function gatedGet<T = unknown>(key: string): Promise<T | undefined>
+    async function gatedGet<T = unknown>(
+      key: string,
+      options: Parameters<typeof ttlKvs.client.get>[1],
+    ): Promise<Awaited<ReturnType<typeof ttlKvs.client.get<T>>>>
+    async function gatedGet<T = unknown>(
+      key: string,
+      options?: Parameters<typeof ttlKvs.client.get>[1],
+    ): Promise<unknown> {
+      const result = options !== undefined ? await ttlKvs.client.get<T>(key, options) : await ttlKvs.client.get<T>(key)
+      if (gateOldDanaWithdraw && key === 'poker:10001:round-1:vote:712020:dana') {
+        gateOldDanaWithdraw = false
+        await withdrawGetGate.waitAtGate()
+      }
+      return result
+    }
+    const gatedClient = {
+      ...ttlKvs.client,
+      get: gatedGet,
+    }
+    const store = createSessionStore(gatedClient)
+    const jiraDouble = createFakeJiraDouble({
+      onMyself: async () => {
+        if (gateOldAliceMyself) {
+          gateOldAliceMyself = false
+          await myselfGate.waitAtGate()
+          return jsonJiraResponse(200, {
+            accountId: '712020:alice',
+            displayName: 'Alice (Old Session)',
+            avatarUrls: {},
+          })
+        }
+        return jsonJiraResponse(200, {
+          accountId: '712020:dana',
+          displayName: 'Dana',
+          avatarUrls: {},
+        })
+      },
+      onPutIssue: async () => {
+        if (gateOldApplyPut) {
+          gateOldApplyPut = false
+          await putIssueGate.waitAtGate()
+        }
+        return jsonJiraResponse(204, null)
+      },
+    })
+    const jira = createJiraClient({ requestAsUser: jiraDouble.requestAsUser })
+    const realtime = createRealtimePublisher({ publish: createFakeRealtimeDouble().publish })
+    const handlers = createPokerResolverHandlers({
+      store,
+      jira,
+      realtime,
+      now: () => nowMs,
+    })
+
+    // 1. Delayed old-session castVote across forced round-1 reuse
+    await handlers.castVote({
+      context: makeHostContext('10001', '712020:dana'),
+      payload: { card: '8' },
+    })
+    gateOldAliceMyself = true
+    const delayedOldCast = handlers.castVote({
+      context: makeHostContext('10001', '712020:alice'),
+      payload: { card: '21' },
+    })
+    await myselfGate.arrivedPromise
+
+    ttlKvs.evictKey('poker:10001:meta')
+    ttlKvs.evictKey('poker:10001:seq')
+    nowMs += 10_000
+    const newSessionAfterCastRace = await handlers.castVote({
+      context: makeHostContext('10001', '712020:dana'),
+      payload: { card: '3' },
+    })
+    expect(newSessionAfterCastRace.roundId).toBe('round-1')
+    expect(newSessionAfterCastRace.viewerCard).toBe('3')
+
+    myselfGate.release()
+    await delayedOldCast
+
+    const checkAfterOldCast = await handlers.getSession({
+      context: makeHostContext('10001', '712020:dana'),
+    })
+    expect(checkAfterOldCast.roundId).toBe('round-1')
+    expect(checkAfterOldCast.status).toBe('voting')
+    expect(checkAfterOldCast.viewerCard).toBe('3')
+    expect(checkAfterOldCast.participants.map((p) => p.accountId)).toEqual(['712020:dana'])
+
+    // 2. Delayed old-session withdrawVote across forced round-1 reuse
+    gateOldDanaWithdraw = true
+    const delayedOldWithdraw = handlers.withdrawVote({
+      context: makeHostContext('10001', '712020:dana'),
+    })
+    await withdrawGetGate.arrivedPromise
+
+    ttlKvs.evictKey('poker:10001:meta')
+    ttlKvs.evictKey('poker:10001:seq')
+    nowMs += 10_000
+    await handlers.castVote({
+      context: makeHostContext('10001', '712020:dana'),
+      payload: { card: '5' },
+    })
+
+    withdrawGetGate.release()
+    await delayedOldWithdraw
+
+    const checkAfterOldWithdraw = await handlers.getSession({
+      context: makeHostContext('10001', '712020:dana'),
+    })
+    expect(checkAfterOldWithdraw.roundId).toBe('round-1')
+    expect(checkAfterOldWithdraw.viewerCard).toBe('5')
+    expect(checkAfterOldWithdraw.participants.map((p) => p.accountId)).toEqual(['712020:dana'])
+
+    // 3. Delayed old-session applyStoryPoints (paused on Jira PUT) across forced round-1 reuse
+    await handlers.revealVotes({
+      context: makeHostContext('10001', '712020:dana'),
+    })
+    gateOldApplyPut = true
+    const delayedOldApply = handlers.applyStoryPoints({
+      context: makeHostContext('10001', '712020:dana'),
+      payload: { score: 5 },
+    })
+    await putIssueGate.arrivedPromise
+
+    ttlKvs.evictKey('poker:10001:meta')
+    ttlKvs.evictKey('poker:10001:seq')
+    nowMs += 10_000
+    await handlers.castVote({
+      context: makeHostContext('10001', '712020:dana'),
+      payload: { card: '2' },
+    })
+
+    putIssueGate.release()
+    const applyOutcome = await delayedOldApply
+    expect(applyOutcome.ok).toBe(true)
+
+    const checkAfterOldApply = await handlers.getSession({
+      context: makeHostContext('10001', '712020:dana'),
+    })
+    expect(checkAfterOldApply.roundId).toBe('round-1')
+    expect(checkAfterOldApply.status).toBe('voting')
+    expect(checkAfterOldApply.viewerCard).toBe('2')
+    expect(checkAfterOldApply.participants.map((p) => p.accountId)).toEqual(['712020:dana'])
+  })
+
+  it('upgrades un-epoched legacy sessions on resetRound, applyStoryPoints, and expired castVote without resurrecting stale target-round tombstones or votes', async () => {
+    const nowMs = 95_000_000
+    const baseKvs = createInMemoryKvsDouble()
+    const store = createSessionStore(baseKvs.client)
+    const jira = createJiraClient({ requestAsUser: createFakeJiraDouble().requestAsUser })
+    const realtime = createRealtimePublisher({ publish: createFakeRealtimeDouble().publish })
+    const handlers = createPokerResolverHandlers({
+      store,
+      jira,
+      realtime,
+      now: () => nowMs,
+    })
+
+    // 1. Legacy un-epoched resetRound into round-2 with lingering legacy round-2:status = revealed & vote
+    baseKvs.seedRoundMeta('10001', {
+      roundId: 'round-1',
+      status: 'voting',
+      overrideScore: null,
+      updatedAt: nowMs - 1_000,
+    })
+    baseKvs.seedRaw('poker:10001:round-2:status', { status: 'revealed', updatedAt: nowMs - 500 })
+    baseKvs.seedVoteRecord('10001', 'round-2', {
+      accountId: '712020:legacy-bob',
+      displayName: 'Legacy Bob',
+      avatarUrl: null,
+      card: '13',
+      votedAt: nowMs - 500,
+    })
+
+    const resetLegacy = await handlers.resetRound({
+      context: makeHostContext('10001', '712020:alice'),
+    })
+    expect(resetLegacy.roundId).toBe('round-2')
+    expect(resetLegacy.status).toBe('voting')
+    expect(resetLegacy.participants).toEqual([])
+
+    // 2. Legacy un-epoched applyStoryPoints into round-2 with lingering legacy round-2:status = revealed & vote
+    baseKvs.seedRoundMeta('10002', {
+      roundId: 'round-1',
+      status: 'revealed',
+      overrideScore: 5,
+      updatedAt: nowMs - 1_000,
+    })
+    baseKvs.seedRaw('poker:10002:round-2:status', { status: 'revealed', updatedAt: nowMs - 500 })
+    baseKvs.seedVoteRecord('10002', 'round-2', {
+      accountId: '712020:legacy-bob',
+      displayName: 'Legacy Bob',
+      avatarUrl: null,
+      card: '13',
+      votedAt: nowMs - 500,
+    })
+
+    const applyLegacy = await handlers.applyStoryPoints({
+      context: makeHostContext('10002', '712020:alice'),
+      payload: { score: 5 },
+    })
+    expect(applyLegacy.ok).toBe(true)
+    if (applyLegacy.ok) {
+      expect(applyLegacy.session.roundId).toBe('round-2')
+      expect(applyLegacy.session.status).toBe('voting')
+      expect(applyLegacy.session.participants).toEqual([])
+    }
+
+    // 3. Expired legacy un-epoched round-1 rolled over by castVote into round-2 with lingering legacy round-2:status = revealed & vote
+    baseKvs.seedRoundMeta('10003', {
+      roundId: 'round-1',
+      status: 'voting',
+      overrideScore: null,
+      updatedAt: nowMs - SESSION_TTL_MS - 1_000,
+    })
+    baseKvs.seedRaw('poker:10003:round-2:status', { status: 'revealed', updatedAt: nowMs - 500 })
+    baseKvs.seedVoteRecord('10003', 'round-2', {
+      accountId: '712020:legacy-bob',
+      displayName: 'Legacy Bob',
+      avatarUrl: null,
+      card: '21',
+      votedAt: nowMs - 500,
+    })
+
+    const rolloverLegacy = await handlers.castVote({
+      context: makeHostContext('10003', '712020:alice'),
+      payload: { card: '8' },
+    })
+    expect(rolloverLegacy.roundId).toBe('round-2')
+    expect(rolloverLegacy.status).toBe('voting')
+    expect(rolloverLegacy.viewerCard).toBe('8')
+    expect(rolloverLegacy.participants.map((p) => p.accountId)).toEqual(['712020:alice'])
   })
 })

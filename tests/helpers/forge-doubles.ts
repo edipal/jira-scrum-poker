@@ -9,6 +9,8 @@ import {
   KVS_TTL_24H,
   type KvsBeginsWithCondition,
   type KvsClientLike,
+  type KvsGetOptions,
+  type KvsGetResult,
   type KvsListItem,
   type KvsListPage,
   type KvsQueryBuilderLike,
@@ -109,19 +111,33 @@ export interface InMemoryKvsDouble {
   resetOperations(): void
 }
 
+function requestsExpireTime(options?: KvsGetOptions): boolean {
+  return (
+    Array.isArray(options?.metadataFields) && options.metadataFields.some((field) => String(field) === 'EXPIRE_TIME')
+  )
+}
+
 export function createInMemoryKvsDouble(config?: { readonly maxPageSize?: number }): InMemoryKvsDouble {
   const store = new Map<string, { value: unknown; options: KvsSetOptions | undefined }>()
   const operations: KvsOperationRecord[] = []
 
+  async function get<T = unknown>(key: string): Promise<T | undefined>
+  async function get<T = unknown>(key: string, options: KvsGetOptions): Promise<T | KvsGetResult<T> | undefined>
+  async function get<T = unknown>(key: string, options?: KvsGetOptions): Promise<T | KvsGetResult<T> | undefined> {
+    operations.push({ op: 'get', key })
+    const entry = store.get(key)
+    if (entry === undefined) {
+      return undefined
+    }
+    const cloned = structuredClone(entry.value) as T
+    if (requestsExpireTime(options)) {
+      return { key, value: cloned }
+    }
+    return cloned
+  }
+
   const client: KvsClientLike = {
-    async get<T = unknown>(key: string): Promise<T | undefined> {
-      operations.push({ op: 'get', key })
-      const entry = store.get(key)
-      if (entry === undefined) {
-        return undefined
-      }
-      return structuredClone(entry.value) as T
-    },
+    get,
 
     async set<T = unknown>(key: string, value: T, options?: KvsSetOptions): Promise<void> {
       operations.push({ op: 'set', key, options })
@@ -136,7 +152,7 @@ export function createInMemoryKvsDouble(config?: { readonly maxPageSize?: number
       store.delete(key)
     },
 
-    query(): KvsQueryBuilderLike {
+    query(_options?: KvsGetOptions): KvsQueryBuilderLike {
       let queryPrefix: string | null = null
       let queryLimit = 10
       let queryCursor: string | undefined
@@ -295,13 +311,28 @@ export function createTtlAwareKvsDouble(config: {
     return evicted
   }
 
-  const client: KvsClientLike = {
-    async get<T = unknown>(key: string): Promise<T | undefined> {
-      if (autoEvict) {
-        purgeExpiredSync(config.now())
+  async function get<T = unknown>(key: string): Promise<T | undefined>
+  async function get<T = unknown>(key: string, options: KvsGetOptions): Promise<T | KvsGetResult<T> | undefined>
+  async function get<T = unknown>(key: string, options?: KvsGetOptions): Promise<T | KvsGetResult<T> | undefined> {
+    if (autoEvict) {
+      purgeExpiredSync(config.now())
+    }
+    const raw = await base.client.get<T>(key)
+    if (raw === undefined) {
+      return undefined
+    }
+    if (requestsExpireTime(options)) {
+      const expiresAt = expiresAtByKey.get(key) ?? null
+      if (expiresAt !== null) {
+        return { key, value: raw, expireTime: new Date(expiresAt).toISOString() }
       }
-      return await base.client.get<T>(key)
-    },
+      return { key, value: raw }
+    }
+    return raw
+  }
+
+  const client: KvsClientLike = {
+    get,
     async set<T = unknown>(key: string, value: T, options?: KvsSetOptions): Promise<void> {
       recordWriteTtl(key, options)
       await base.client.set(key, value, options)
@@ -310,8 +341,8 @@ export function createTtlAwareKvsDouble(config: {
       expiresAtByKey.delete(key)
       await base.client.delete(key)
     },
-    query(): KvsQueryBuilderLike {
-      const inner = base.client.query()
+    query(options?: KvsGetOptions): KvsQueryBuilderLike {
+      const inner = base.client.query(options)
       const wrapper: KvsQueryBuilderLike = {
         where(field, condition) {
           inner.where(field, condition)
@@ -329,7 +360,18 @@ export function createTtlAwareKvsDouble(config: {
           if (autoEvict) {
             purgeExpiredSync(config.now())
           }
-          return await inner.getMany<T>()
+          const page = await inner.getMany<T>()
+          if (!requestsExpireTime(options)) {
+            return page
+          }
+          const results: KvsListItem<T>[] = page.results.map((item) => {
+            const expiresAt = expiresAtByKey.get(item.key) ?? null
+            if (expiresAt !== null) {
+              return { ...item, expireTime: new Date(expiresAt).toISOString() }
+            }
+            return item
+          })
+          return page.nextCursor !== undefined ? { results, nextCursor: page.nextCursor } : { results }
         },
       }
       return wrapper
