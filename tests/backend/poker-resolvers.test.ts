@@ -2479,4 +2479,125 @@ describe('Monotonic round transitions under gated Jira & KVS interleaving (race 
     expect(rolloverLegacy.viewerCard).toBe('8')
     expect(rolloverLegacy.participants.map((p) => p.accountId)).toEqual(['712020:alice'])
   })
+
+  it('prevents a concurrent same-session resetRound from overwriting an already-advanced round (and recovers if meta expires mid-reset)', async () => {
+    let nowMs = 98_000_000
+    const seqGate = createDeferredGate()
+    let gateNextSeqRead = false
+
+    const ttlKvs = createTtlAwareKvsDouble({ now: () => nowMs })
+    async function gatedGet<T = unknown>(key: string): Promise<T | undefined>
+    async function gatedGet<T = unknown>(
+      key: string,
+      options: Parameters<typeof ttlKvs.client.get>[1],
+    ): Promise<Awaited<ReturnType<typeof ttlKvs.client.get<T>>>>
+    async function gatedGet<T = unknown>(
+      key: string,
+      options?: Parameters<typeof ttlKvs.client.get>[1],
+    ): Promise<unknown> {
+      if (gateNextSeqRead && key === 'poker:10001:seq') {
+        gateNextSeqRead = false
+        await seqGate.waitAtGate()
+      }
+      return options !== undefined ? await ttlKvs.client.get<T>(key, options) : await ttlKvs.client.get<T>(key)
+    }
+
+    const store = createSessionStore({ ...ttlKvs.client, get: gatedGet })
+    const jira = createJiraClient({ requestAsUser: createFakeJiraDouble().requestAsUser })
+    const realtime = createRealtimePublisher({ publish: createFakeRealtimeDouble().publish })
+    const handlers = createPokerResolverHandlers({
+      store,
+      jira,
+      realtime,
+      now: () => nowMs,
+    })
+
+    // Open round-1 ('epoch-1')
+    await handlers.castVote({
+      context: makeHostContext('10001', '712020:alice'),
+      payload: { card: '5' },
+    })
+
+    // 1. Reset B captures round-1 ('epoch-1') context, then pauses right before reading :seq in allocateRoundId
+    gateNextSeqRead = true
+    const resetBPromise = handlers.resetRound({
+      context: makeHostContext('10001', '712020:charlie'),
+    })
+    await seqGate.arrivedPromise
+
+    // Meanwhile Reset A advances round-1 -> round-2 ('epoch-1', updating :seq to 2) and Bob casts '8' in round-2
+    nowMs += 1_000
+    const resetAResult = await handlers.resetRound({
+      context: makeHostContext('10001', '712020:alice'),
+    })
+    expect(resetAResult.roundId).toBe('round-2')
+
+    nowMs += 500
+    await handlers.castVote({
+      context: makeHostContext('10001', '712020:bob'),
+      payload: { card: '8' },
+    })
+
+    // Release Reset B: B allocates 'round-3' from updated :seq, but advanceRound('round-1' -> 'round-3') aborts on round mismatch
+    seqGate.release()
+    const resetBResult = await resetBPromise
+    expect(resetBResult.roundId).toBe('round-2')
+    expect(resetBResult.participants.map((p) => p.accountId)).toEqual(['712020:bob'])
+
+    const bobSession = await handlers.getSession({
+      context: makeHostContext('10001', '712020:bob'),
+    })
+    expect(bobSession.roundId).toBe('round-2')
+    expect(bobSession.viewerCard).toBe('8')
+    expect(bobSession.participants.map((p) => p.accountId)).toEqual(['712020:bob'])
+
+    // 2. TTL-boundary eviction mid-reset: if poker:10001:meta vanishes before advanceRound, resetRound initializes a real round (no phantom round)
+    const ttlBoundaryGate = createDeferredGate()
+    let gateBoundarySeq = true
+    async function boundaryGet<T = unknown>(key: string): Promise<T | undefined>
+    async function boundaryGet<T = unknown>(
+      key: string,
+      options: Parameters<typeof ttlKvs.client.get>[1],
+    ): Promise<Awaited<ReturnType<typeof ttlKvs.client.get<T>>>>
+    async function boundaryGet<T = unknown>(
+      key: string,
+      options?: Parameters<typeof ttlKvs.client.get>[1],
+    ): Promise<unknown> {
+      if (gateBoundarySeq && key === 'poker:10001:seq') {
+        gateBoundarySeq = false
+        await ttlBoundaryGate.waitAtGate()
+      }
+      return options !== undefined ? await ttlKvs.client.get<T>(key, options) : await ttlKvs.client.get<T>(key)
+    }
+    const boundaryStore = createSessionStore({
+      ...ttlKvs.client,
+      get: boundaryGet,
+    })
+    const boundaryHandlers = createPokerResolverHandlers({
+      store: boundaryStore,
+      jira,
+      realtime,
+      now: () => nowMs,
+    })
+
+    const boundaryResetPromise = boundaryHandlers.resetRound({
+      context: makeHostContext('10001', '712020:alice'),
+    })
+    await ttlBoundaryGate.arrivedPromise
+
+    ttlKvs.evictKey('poker:10001:meta')
+    nowMs += 1_000
+    ttlBoundaryGate.release()
+
+    const boundaryResetResult = await boundaryResetPromise
+    expect(boundaryResetResult.roundId).toBe('round-3')
+
+    // Confirm 'round-3' was persisted in KVS (not an unpersisted phantom fallback)
+    const persistedAfterBoundaryReset = await boundaryHandlers.castVote({
+      context: makeHostContext('10001', '712020:alice'),
+      payload: { card: '13' },
+    })
+    expect(persistedAfterBoundaryReset.roundId).toBe('round-3')
+    expect(persistedAfterBoundaryReset.viewerCard).toBe('13')
+  })
 })

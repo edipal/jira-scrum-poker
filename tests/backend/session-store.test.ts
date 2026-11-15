@@ -573,4 +573,93 @@ describe('SessionStore round metadata, voter records, 24h TTL, and pagination (R
     expect(await store.getRoundMeta('10001', nowMs)).toBeNull()
     expect(await store.listVoterRecords('10001', 'round-1', nowMs)).toEqual([])
   })
+
+  it('rejects same-epoch stale-round mutations (advance/reveal/override/vote) and returns null from advanceRound when meta vanished', async () => {
+    let nowMs = 10_000
+    const ttlKvs = createTtlAwareKvsDouble({ now: () => nowMs })
+    const store = createSessionStore(ttlKvs.client)
+
+    await store.initializeRound('10001', 'round-1', nowMs)
+    const observedB = await store.getRoundContext('10001', nowMs)
+    expect(observedB).toEqual({
+      meta: { roundId: 'round-1', status: 'voting', overrideScore: null, updatedAt: 10_000 },
+      sessionEpoch: 'epoch-1',
+    })
+
+    // Caller A advances round-1 -> round-2 in 'epoch-1', and Bob votes in round-2
+    nowMs = 11_000
+    await store.advanceRound('10001', 'round-1', 'round-2', nowMs, {
+      expectedEpoch: 'epoch-1',
+      expectedRoundId: 'round-1',
+    })
+    await store.setVoterRecord(
+      '10001',
+      'round-2',
+      {
+        accountId: '712020:bob',
+        displayName: 'Bob',
+        avatarUrl: null,
+        card: '8',
+        votedAt: 11_500,
+      },
+      { expectedEpoch: 'epoch-1', expectedRoundId: 'round-2' },
+    )
+
+    // Caller B allocates after A updated :seq (getting 'round-3') and tries to advance stale 'round-1' -> 'round-3'
+    nowMs = 12_000
+    const bAllocated = await store.allocateRoundId('10001', observedB.meta?.roundId ?? null)
+    expect(bAllocated).toBe('round-3')
+    const bAdvance = await store.advanceRound('10001', 'round-1', bAllocated, nowMs, {
+      expectedEpoch: observedB.sessionEpoch,
+    })
+    expect(bAdvance).toEqual({
+      roundId: 'round-2',
+      status: 'voting',
+      overrideScore: null,
+      updatedAt: 11_000,
+    })
+
+    // Same-epoch stale reveal, override, vote write, vote delete, and activity touch on 'round-1' must also abort
+    const staleReveal = await store.markRoundRevealed('10001', 'round-1', nowMs, { expectedEpoch: 'epoch-1' })
+    expect(staleReveal.roundId).toBe('round-2')
+    expect(staleReveal.status).toBe('voting')
+
+    const staleOverride = await store.setRoundOverride('10001', 'round-1', 21, nowMs, { expectedEpoch: 'epoch-1' })
+    expect(staleOverride.roundId).toBe('round-2')
+    expect(staleOverride.overrideScore).toBeNull()
+
+    await store.setVoterRecord(
+      '10001',
+      'round-1',
+      {
+        accountId: '712020:alice',
+        displayName: 'Alice',
+        avatarUrl: null,
+        card: '5',
+        votedAt: nowMs,
+      },
+      { expectedEpoch: 'epoch-1', expectedRoundId: 'round-1' },
+    )
+    await store.touchRoundActivity('10001', 'round-1', 15_000, {
+      expectedEpoch: 'epoch-1',
+      expectedRoundId: 'round-1',
+    })
+    expect(ttlKvs.hasKey('poker:10001:round-1:vote:712020:alice')).toBe(false)
+    expect(await store.getRoundMeta('10001', nowMs)).toEqual({
+      roundId: 'round-2',
+      status: 'voting',
+      overrideScore: null,
+      updatedAt: 11_000,
+    })
+    expect(await store.listVoterRecords('10001', 'round-2', nowMs)).toHaveLength(1)
+
+    // TTL-boundary eviction: when poker:10001:meta vanishes before advanceRound, return null (never phantom newMeta)
+    ttlKvs.evictKey('poker:10001:meta')
+    const missingMetaAdvance = await store.advanceRound('10001', 'round-2', 'round-3', 16_000, {
+      expectedEpoch: 'epoch-1',
+      expectedRoundId: 'round-2',
+    })
+    expect(missingMetaAdvance).toBeNull()
+    expect(await store.getRoundMeta('10001', 16_000)).toBeNull()
+  })
 })
