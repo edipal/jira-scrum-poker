@@ -5,3 +5,4 @@ static/*/build/
 coverage/
 .forge/
 .lintel/state/
+.lintel/tasks/

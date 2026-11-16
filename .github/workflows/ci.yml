@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Build, Lint, Typecheck & Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint, format check, typecheck, build UI & verify zero-egress manifest
+        run: ./.lintel/scripts/build.sh
+
+      - name: Run unit & component test suites
+        run: ./.lintel/scripts/test-unit.sh
+
+      - name: Run Atlassian Forge manifest & bundle lint
+        env:
+          FORGE_EMAIL: ${{ secrets.FORGE_EMAIL }}
+          FORGE_API_TOKEN: ${{ secrets.FORGE_API_TOKEN }}
+        run: |
+          if [ -n "$FORGE_EMAIL" ] && [ -n "$FORGE_API_TOKEN" ]; then
+            npx --yes @forge/cli@15.1.0 lint
+          else
+            echo "Skipping 'forge lint': FORGE_EMAIL / FORGE_API_TOKEN secrets are not configured for headless Forge CLI auth."
+          fi

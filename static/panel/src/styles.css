@@ -1,0 +1,255 @@
+:root {
+  --sp-surface: var(--ds-surface, #ffffff);
+  --sp-surface-raised: var(--ds-surface-raised, #f7f8f9);
+  --sp-text: var(--ds-text, #172b4d);
+  --sp-text-subtle: var(--ds-text-subtle, #44546f);
+  --sp-text-inverse: var(--ds-text-inverse, #ffffff);
+  --sp-border: var(--ds-border, #dcdfe4);
+  --sp-border-focused: var(--ds-border-focused, #0c66e4);
+  --sp-bg-neutral: var(--ds-background-neutral, #091e420f);
+  --sp-bg-selected: var(--ds-background-selected, #e9f2ff);
+  --sp-text-selected: var(--ds-text-selected, #0c66e4);
+  --sp-bg-brand: var(--ds-background-brand-bold, #0c66e4);
+  --sp-bg-warning: var(--ds-background-warning, #fff7d6);
+  --sp-text-warning: var(--ds-text-warning, #7f5f01);
+  --sp-bg-danger: var(--ds-background-danger, #ffeceb);
+  --sp-text-danger: var(--ds-text-danger, #ae2e24);
+  --sp-bg-success: var(--ds-background-success, #dcfff1);
+  --sp-text-success: var(--ds-text-success, #216e4e);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-color-mode="light"]) {
+    --sp-surface: var(--ds-surface, #1d2125);
+    --sp-surface-raised: var(--ds-surface-raised, #22272b);
+    --sp-text: var(--ds-text, #b6c2cf);
+    --sp-text-subtle: var(--ds-text-subtle, #8c9bab);
+    --sp-text-inverse: var(--ds-text-inverse, #1d2125);
+    --sp-border: var(--ds-border, #a6c5e229);
+    --sp-border-focused: var(--ds-border-focused, #579dff);
+    --sp-bg-neutral: var(--ds-background-neutral, #a1bdd914);
+    --sp-bg-selected: var(--ds-background-selected, #1c2b41);
+    --sp-text-selected: var(--ds-text-selected, #579dff);
+    --sp-bg-brand: var(--ds-background-brand-bold, #579dff);
+    --sp-bg-warning: var(--ds-background-warning, #332e1b);
+    --sp-text-warning: var(--ds-text-warning, #f5cd47);
+    --sp-bg-danger: var(--ds-background-danger, #42221f);
+    --sp-text-danger: var(--ds-text-danger, #fd9891);
+    --sp-bg-success: var(--ds-background-success, #1c3329);
+    --sp-text-success: var(--ds-text-success, #4bce97);
+  }
+}
+
+[data-color-mode="dark"] {
+  --sp-surface: var(--ds-surface, #1d2125);
+  --sp-surface-raised: var(--ds-surface-raised, #22272b);
+  --sp-text: var(--ds-text, #b6c2cf);
+  --sp-text-subtle: var(--ds-text-subtle, #8c9bab);
+  --sp-text-inverse: var(--ds-text-inverse, #1d2125);
+  --sp-border: var(--ds-border, #a6c5e229);
+  --sp-border-focused: var(--ds-border-focused, #579dff);
+  --sp-bg-neutral: var(--ds-background-neutral, #a1bdd914);
+  --sp-bg-selected: var(--ds-background-selected, #1c2b41);
+  --sp-text-selected: var(--ds-text-selected, #579dff);
+  --sp-bg-brand: var(--ds-background-brand-bold, #579dff);
+  --sp-bg-warning: var(--ds-background-warning, #332e1b);
+  --sp-text-warning: var(--ds-text-warning, #f5cd47);
+  --sp-bg-danger: var(--ds-background-danger, #42221f);
+  --sp-text-danger: var(--ds-text-danger, #fd9891);
+  --sp-bg-success: var(--ds-background-success, #1c3329);
+  --sp-text-success: var(--ds-text-success, #4bce97);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--sp-surface);
+  color: var(--sp-text);
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, "Fira Sans", "Droid Sans", "Helvetica Neue",
+    sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.sp-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  background-color: var(--sp-surface);
+  color: var(--sp-text);
+}
+
+.sp-loading {
+  color: var(--sp-text-subtle);
+  padding: 8px 0;
+}
+
+.sp-banner {
+  padding: 8px 12px;
+  border-radius: 4px;
+  border: 1px solid var(--sp-border);
+  font-size: 13px;
+}
+
+.sp-banner-error {
+  background-color: var(--sp-bg-danger);
+  color: var(--sp-text-danger);
+}
+
+.sp-banner-warning {
+  background-color: var(--sp-bg-warning);
+  color: var(--sp-text-warning);
+}
+
+.sp-banner-success {
+  background-color: var(--sp-bg-success);
+  color: var(--sp-text-success);
+}
+
+.sp-deck {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sp-card {
+  min-width: 40px;
+  height: 52px;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: 1px solid var(--sp-border);
+  background-color: var(--sp-surface-raised);
+  color: var(--sp-text);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    transform 80ms ease;
+}
+
+.sp-card:hover:not(:disabled) {
+  background-color: var(--sp-bg-neutral);
+  border-color: var(--sp-border-focused);
+}
+
+.sp-card-selected,
+.sp-card[aria-pressed="true"] {
+  background-color: var(--sp-bg-selected);
+  border-color: var(--sp-border-focused);
+  color: var(--sp-text-selected);
+  box-shadow: inset 0 0 0 1px var(--sp-border-focused);
+}
+
+.sp-card:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.sp-card:focus-visible,
+.sp-button:focus-visible {
+  outline: 2px solid var(--sp-border-focused);
+  outline-offset: 2px;
+}
+
+.sp-empty-prompt {
+  margin: 0;
+  color: var(--sp-text-subtle);
+  font-size: 13px;
+}
+
+.sp-participants {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.sp-participant-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background-color: var(--sp-bg-neutral);
+  border: 1px solid var(--sp-border);
+  color: var(--sp-text);
+  font-size: 13px;
+}
+
+.sp-score-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  background-color: var(--sp-surface-raised);
+  border: 1px solid var(--sp-border);
+}
+
+.sp-metric,
+.sp-no-numeric {
+  font-size: 13px;
+  color: var(--sp-text);
+}
+
+.sp-override-prompt {
+  margin: 0;
+  font-size: 13px;
+  color: var(--sp-text-subtle);
+}
+
+.sp-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.sp-button {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.sp-button-primary {
+  background-color: var(--sp-bg-brand);
+  color: var(--sp-text-inverse);
+}
+
+.sp-button-secondary {
+  background-color: var(--sp-bg-neutral);
+  border-color: var(--sp-border);
+  color: var(--sp-text);
+}
+
+.sp-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sp-copy-feedback {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--sp-text-success);
+}
+
+.sp-copy-fallback {
+  font-size: 13px;
+  color: var(--sp-text-warning);
+}

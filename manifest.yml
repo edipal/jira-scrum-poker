@@ -1,10 +1,11 @@
 modules:
-  jira:issuePanel:
-    - key: scrum-poker-issue-panel
+  jira:issueContext:
+    - key: scrum-poker-issue-context
       resource: panel-ui
       resolver:
         function: resolver-fn
       title: Scrum Poker
+      label: Scrum Poker
       icon: resource:panel-assets;icon.svg
   function:
     - key: resolver-fn
@@ -23,4 +24,4 @@ permissions:
 app:
   runtime:
     name: nodejs22.x
-  id: ari:cloud:ecosystem::app/00000000-0000-0000-0000-000000000000
+  id: ari:cloud:ecosystem::app/132c0827-2c3a-4ba1-83f5-7b9d621885a5
